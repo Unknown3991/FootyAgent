@@ -20,8 +20,10 @@ APIF_HEADERS = {"x-apisports-key": API_FOOTBALL_KEY}
 # -----------------------------------------------------------------------------
 # 1. UPCOMING FIXTURES TOOL
 # -----------------------------------------------------------------------------
-def get_upcoming_fixtures(league="PL"):
-    """Fetches upcoming scheduled matches from Football-Data.org with status fallbacks."""
+# Replace get_upcoming_fixtures in football_tools.py with this:
+
+def get_upcoming_fixtures(league="PL", limit=5):
+    """Fetches the next 'limit' upcoming scheduled matches from Football-Data.org."""
     url = f"{FD_BASE}/competitions/{league}/matches?status=SCHEDULED"
     
     try:
@@ -32,13 +34,16 @@ def get_upcoming_fixtures(league="PL"):
             
         matches = res.json().get("matches", []) if res.status_code == 200 else []
 
-        # Fallback: If no SCHEDULED matches found, query next upcoming matches directly
+        # Fallback: If no SCHEDULED matches found, query matches directly
         if not matches:
             fallback_url = f"{FD_BASE}/competitions/{league}/matches"
             res_fb = requests.get(fallback_url, headers=FD_HEADERS, timeout=10)
             if res_fb.status_code == 200:
                 all_matches = res_fb.json().get("matches", [])
-                matches = [m for m in all_matches if m.get("status") in ["SCHEDULED", "TIMED", "POSTPONED"]][:5]
+                matches = [m for m in all_matches if m.get("status") in ["SCHEDULED", "TIMED", "POSTPONED"]]
+
+        # CRITICAL FIX: Slice to return only the next 'limit' fixtures (e.g. 5)
+        upcoming_slice = matches[:limit]
 
         return [
             {
@@ -47,7 +52,7 @@ def get_upcoming_fixtures(league="PL"):
                 "away_team": m["awayTeam"]["name"],
                 "utc_date": m["utcDate"]
             }
-            for m in matches
+            for m in upcoming_slice
         ]
 
     except Exception as e:
