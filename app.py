@@ -91,6 +91,17 @@ def format_fixture_date(utc_str):
     except Exception:
         return utc_str[:10]
 
+# Safe helpers to parse different message types (dict vs LangChain objects)
+def parse_msg(msg):
+    if isinstance(msg, dict):
+        role = msg.get("role")
+        content = msg.get("content")
+    else:
+        role_type = getattr(msg, "type", None) or getattr(msg, "role", None)
+        role = "user" if role_type in ["human", "user"] else "assistant"
+        content = getattr(msg, "content", str(msg))
+    return role, content
+
 # Initialize Session Chat Memory
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -157,20 +168,21 @@ if not st.session_state.messages:
 else:
     # 1. Display Chat History
     for message in st.session_state.messages:
-        if isinstance(message, dict) and message.get("role") in ["user", "assistant"]:
-            content = message.get("content")
-            if content and isinstance(content, str):
-                with st.chat_message(message["role"]):
-                    st.markdown(content)
+        role, content = parse_msg(message)
+        if role in ["user", "assistant"] and content:
+            with st.chat_message(role):
+                st.markdown(content)
 
     # 2. Process latest user query if pending AI answer
-    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        with st.chat_message("assistant"):
-            with st.spinner("Retrieving live statistics and compiling quantitative analysis..."):
-                reply, updated_history = run_football_agent(st.session_state.messages)
-                st.markdown(reply)
-                st.session_state.messages = updated_history
-                st.rerun()
+    if st.session_state.messages:
+        last_role, _ = parse_msg(st.session_state.messages[-1])
+        if last_role == "user":
+            with st.chat_message("assistant"):
+                with st.spinner("Retrieving live statistics and compiling quantitative analysis..."):
+                    reply, updated_history = run_football_agent(st.session_state.messages)
+                    st.markdown(reply)
+                    st.session_state.messages = updated_history
+                    st.rerun()
 
     # 3. Floating Bottom Chat Input for Follow-Up Questions
     if follow_up_input := st.chat_input("Ask a follow-up question or analyze another match..."):
