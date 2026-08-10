@@ -126,10 +126,10 @@ if not st.session_state.messages:
         st.session_state.messages.append({"role": "user", "content": initial_input})
         st.rerun()
 
-    # 2. Upcoming Fixtures Section (Only visible on initial load)
+    # 2. Upcoming Fixtures Section (Only visible on initial load, max 5 fixtures)
     st.markdown('<div class="fixture-section-title">📅 Upcoming Premier League Fixtures (Click to Analyze)</div>', unsafe_allow_html=True)
 
-    fixtures = get_upcoming_fixtures(league="PL")
+    fixtures = get_upcoming_fixtures(league="PL", limit=5)
 
     if fixtures:
         cols = st.columns(len(fixtures))
