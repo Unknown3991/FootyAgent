@@ -164,7 +164,7 @@ else:
                     st.markdown(content)
 
     # 2. Process latest user query if pending AI answer
-    if st.session_state.messages[-1]["role"] == "user":
+    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         with st.chat_message("assistant"):
             with st.spinner("Retrieving live statistics and compiling quantitative analysis..."):
                 reply, updated_history = run_football_agent(st.session_state.messages)
