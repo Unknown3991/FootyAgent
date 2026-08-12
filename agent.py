@@ -10,11 +10,10 @@ api_key = st.secrets.get("OPENAI_API_KEY") if "OPENAI_API_KEY" in st.secrets els
 client = OpenAI(api_key=api_key)
 
 # 2. Comprehensive System Prompt
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = """You are a Lead Football Betting Quantitative Analyst.
 
-# System prompt instruction in agent.py
-SYSTEM_PROMPT = """
-You are a Lead Football Betting Quantitative Analyst. 
+TOOL NAMING RULE:
+- When querying tool functions, always pass simple, core team names without official club suffixes (e.g., use 'Hull City' instead of 'Hull City AFC', 'Manchester United' instead of 'Manchester United FC').
 
 CRITICAL FORMATTING INSTRUCTIONS:
 - You MUST write the ENTIRE output using BULLET POINTS. Avoid dense prose paragraphs.
