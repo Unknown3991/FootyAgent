@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Check Streamlit Cloud secrets first, fallback to os.getenv for local dev
+# Secrets check
 FD_KEY = st.secrets.get("FOOTBALL_DATA_KEY") if "FOOTBALL_DATA_KEY" in st.secrets else os.getenv("FOOTBALL_DATA_KEY")
 API_FOOTBALL_KEY = st.secrets.get("API_FOOTBALL_KEY") if "API_FOOTBALL_KEY" in st.secrets else os.getenv("API_FOOTBALL_KEY")
 
@@ -17,16 +17,38 @@ FD_HEADERS = {"X-Auth-Token": FD_KEY}
 APIF_HEADERS = {"x-apisports-key": API_FOOTBALL_KEY}
 
 
-# -----------------------------------------------------------------------------
-# HELPER: SANITIZE TEAM NAMES
-# -----------------------------------------------------------------------------
-def sanitize_team_name(name: str) -> str:
-    """Strips common club suffixes so the API search endpoint matches accurately."""
-    clean = name.strip()
+def resolve_team_id(team_name: str):
+    """
+    Tries multiple search permutations to resolve a team name to an API-Football Team ID.
+    """
+    clean = team_name.strip()
     for suffix in [" AFC", " FC", " Football Club", " Club"]:
         if clean.endswith(suffix):
             clean = clean[:-len(suffix)].strip()
-    return clean
+
+    # Query variations in sequence until a match is found
+    search_queries = [clean, team_name.strip()]
+    
+    # Add key word query if multiple words exist (e.g., "Hull" from "Hull City")
+    words = clean.split()
+    if len(words) > 1:
+        search_queries.append(words[0])
+
+    for query in search_queries:
+        try:
+            res = requests.get(f"{APIF_BASE}/teams?search={query}", headers=APIF_HEADERS, timeout=10)
+            if res.status_code == 200 and res.json().get("response"):
+                response_list = res.json()["response"]
+                # Look for exact match first, fallback to first item
+                for item in response_list:
+                    t_name = item["team"]["name"]
+                    if clean.lower() in t_name.lower() or t_name.lower() in clean.lower():
+                        return item["team"]["id"], item["team"]["name"]
+                return response_list[0]["team"]["id"], response_list[0]["team"]["name"]
+        except Exception:
+            continue
+
+    return None, None
 
 
 # -----------------------------------------------------------------------------
@@ -38,13 +60,8 @@ def get_upcoming_fixtures(league="PL", limit=5):
     
     try:
         res = requests.get(url, headers=FD_HEADERS, timeout=10)
-        
-        if res.status_code != 200:
-            print(f"Football-Data API Error [{res.status_code}]: {res.text}")
-            
         matches = res.json().get("matches", []) if res.status_code == 200 else []
 
-        # Fallback: If no SCHEDULED matches found, query matches directly
         if not matches:
             fallback_url = f"{FD_BASE}/competitions/{league}/matches"
             res_fb = requests.get(fallback_url, headers=FD_HEADERS, timeout=10)
@@ -52,7 +69,6 @@ def get_upcoming_fixtures(league="PL", limit=5):
                 all_matches = res_fb.json().get("matches", [])
                 matches = [m for m in all_matches if m.get("status") in ["SCHEDULED", "TIMED", "POSTPONED"]]
 
-        # Slice to return only the next 'limit' fixtures (default: 5)
         upcoming_slice = matches[:limit]
 
         return [
@@ -74,32 +90,24 @@ def get_upcoming_fixtures(league="PL", limit=5):
 # 2. FULL TEAM 22 METRICS TOOL
 # -----------------------------------------------------------------------------
 def get_team_full_22_stats(team_name):
-    """
-    Queries API-Football for comprehensive team stats across 22 key metrics.
-    Automatically handles team name sanitization and searches across multiple leagues/seasons.
-    """
-    clean_name = sanitize_team_name(team_name)
-    
-    # 1. Search for Team ID
-    res = requests.get(f"{APIF_BASE}/teams?search={clean_name}", headers=APIF_HEADERS)
-    if res.status_code != 200 or not res.json().get("response"):
-        return {"error": f"Team '{team_name}' (searched as '{clean_name}') not found."}
+    """Queries API-Football for team stats across 22 key metrics."""
+    team_id, official_name = resolve_team_id(team_name)
+    if not team_id:
+        return {"error": f"Team '{team_name}' could not be resolved."}
 
-    team_data = res.json()["response"][0]["team"]
-    team_id = team_data["id"]
-    official_name = team_data["name"]
-
-    # 2. Query Team Statistics (try recent seasons 2025 and 2024 across major leagues)
     s_res = None
     for season in ["2025", "2024"]:
         for league_id in [39, 40, 45, 2, 3]:  # Premier League, Championship, FA Cup, Champions League, Europa League
             url = f"{APIF_BASE}/teams/statistics?team={team_id}&league={league_id}&season={season}"
-            resp = requests.get(url, headers=APIF_HEADERS)
-            if resp.status_code == 200 and resp.json().get("response"):
-                data = resp.json()["response"]
-                if data.get("fixtures", {}).get("played", {}).get("total", 0) > 0:
-                    s_res = resp
-                    break
+            try:
+                resp = requests.get(url, headers=APIF_HEADERS, timeout=10)
+                if resp.status_code == 200 and resp.json().get("response"):
+                    data = resp.json()["response"]
+                    if data.get("fixtures", {}).get("played", {}).get("total", 0) > 0:
+                        s_res = resp
+                        break
+            except Exception:
+                continue
         if s_res:
             break
 
@@ -147,91 +155,72 @@ def get_team_full_22_stats(team_name):
 # 3. DEEP HEAD-TO-HEAD (H2H) TOOL
 # -----------------------------------------------------------------------------
 def get_deep_head_to_head(team1_name, team2_name):
-    """
-    Fetches the historical head-to-head match records between two teams.
-    Handles team name sanitization for improved match finding.
-    """
-    t1_clean = sanitize_team_name(team1_name)
-    t2_clean = sanitize_team_name(team2_name)
+    """Fetches head-to-head match records between two teams."""
+    t1_id, t1_official = resolve_team_id(team1_name)
+    t2_id, t2_official = resolve_team_id(team2_name)
 
-    # 1. Resolve Team 1
-    t1_res = requests.get(f"{APIF_BASE}/teams?search={t1_clean}", headers=APIF_HEADERS)
-    if not t1_res.json().get("response"):
+    if not t1_id:
         return {"error": f"Team '{team1_name}' not found."}
-    t1_id = t1_res.json()["response"][0]["team"]["id"]
-
-    # 2. Resolve Team 2
-    t2_res = requests.get(f"{APIF_BASE}/teams?search={t2_clean}", headers=APIF_HEADERS)
-    if not t2_res.json().get("response"):
+    if not t2_id:
         return {"error": f"Team '{team2_name}' not found."}
-    t2_id = t2_res.json()["response"][0]["team"]["id"]
 
-    # 3. Fetch H2H Fixtures
     h2h_url = f"{APIF_BASE}/fixtures/headtohead?h2h={t1_id}-{t2_id}"
-    res = requests.get(h2h_url, headers=APIF_HEADERS)
-    
-    if res.status_code != 200 or not res.json().get("response"):
-        return {"error": f"No H2H history found between {team1_name} and {team2_name}."}
+    try:
+        res = requests.get(h2h_url, headers=APIF_HEADERS, timeout=10)
+        if res.status_code != 200 or not res.json().get("response"):
+            return {"error": f"No H2H history found between {t1_official} and {t2_official}."}
 
-    fixtures = res.json()["response"][:8]
+        fixtures = res.json()["response"][:8]
+        history = []
+        for f in fixtures:
+            league_name = f.get("league", {}).get("name")
+            match_date = f.get("fixture", {}).get("date", "")[:10]
+            home = f.get("teams", {}).get("home", {}).get("name")
+            away = f.get("teams", {}).get("away", {}).get("name")
+            goals_home = f.get("goals", {}).get("home")
+            goals_away = f.get("goals", {}).get("away")
 
-    history = []
-    for f in fixtures:
-        league_name = f.get("league", {}).get("name")
-        match_date = f.get("fixture", {}).get("date", "")[:10]
-        home = f.get("teams", {}).get("home", {}).get("name")
-        away = f.get("teams", {}).get("away", {}).get("name")
-        goals_home = f.get("goals", {}).get("home")
-        goals_away = f.get("goals", {}).get("away")
+            history.append({
+                "date": match_date,
+                "competition": league_name,
+                "match": f"{home} {goals_home} - {goals_away} {away}"
+            })
 
-        history.append({
-            "date": match_date,
-            "competition": league_name,
-            "match": f"{home} {goals_home} - {goals_away} {away}"
-        })
-
-    return {
-        "teams": [team1_name, team2_name],
-        "recent_meetings_count": len(history),
-        "history": history
-    }
+        return {
+            "teams": [t1_official, t2_official],
+            "recent_meetings_count": len(history),
+            "history": history
+        }
+    except Exception as e:
+        return {"error": f"Error fetching H2H: {e}"}
 
 
 # -----------------------------------------------------------------------------
-# 4. PLAYER STATISTICS & PLAYER PROPS TOOL
+# 4. PLAYER STATISTICS TOOL
 # -----------------------------------------------------------------------------
 def get_top_player_stats(team_name):
-    """
-    Retrieves the top 3 players for a team across 4 key player betting markets:
-    - Shots
-    - Shots on Target
-    - Tackles
-    - Bookings / Yellow Cards
-    """
-    clean_name = sanitize_team_name(team_name)
-    
-    res = requests.get(f"{APIF_BASE}/teams?search={clean_name}", headers=APIF_HEADERS)
-    if res.status_code != 200 or not res.json().get("response"):
+    """Retrieves player statistics across key player props markets."""
+    team_id, official_name = resolve_team_id(team_name)
+    if not team_id:
         return {"error": f"Team '{team_name}' not found for player statistics."}
-
-    team_data = res.json()["response"][0]["team"]
-    team_id = team_data["id"]
-    official_name = team_data["name"]
 
     p_res = None
     for season in ["2025", "2024"]:
         players_url = f"{APIF_BASE}/players?team={team_id}&season={season}"
-        resp = requests.get(players_url, headers=APIF_HEADERS)
-        if resp.status_code == 200 and resp.json().get("response"):
-            p_res = resp
-            break
+        try:
+            resp = requests.get(players_url, headers=APIF_HEADERS, timeout=10)
+            if resp.status_code == 200 and resp.json().get("response"):
+                p_res = resp
+                break
+        except Exception:
+            continue
 
     if not p_res:
         return {"error": f"Could not retrieve player statistics for {official_name}."}
 
     players_raw = p_res.json()["response"]
-
     parsed_players = []
+
     for item in players_raw:
         player_info = item["player"]
         stats_list = item["statistics"]
@@ -239,7 +228,6 @@ def get_top_player_stats(team_name):
             continue
         
         s = stats_list[0]
-        
         parsed_players.append({
             "name": player_info.get("name"),
             "position": s.get("games", {}).get("position"),
@@ -254,7 +242,6 @@ def get_top_player_stats(team_name):
     if not parsed_players:
         return {"error": f"No detailed player profiles returned for {official_name}."}
 
-    # Sort & Extract Top 3 for each category
     top_shots = sorted(parsed_players, key=lambda x: x["shots_total"], reverse=True)[:3]
     top_shots_on_target = sorted(parsed_players, key=lambda x: x["shots_on_target"], reverse=True)[:3]
     top_tackles = sorted(parsed_players, key=lambda x: x["tackles_total"], reverse=True)[:3]
@@ -307,7 +294,7 @@ TOOLS_SCHEMA = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "team_name": {"type": "string", "description": "Football team name e.g. Arsenal or Chelsea"}
+                    "team_name": {"type": "string", "description": "Football team name e.g. Hull City or Manchester United"}
                 },
                 "required": ["team_name"]
             }
@@ -336,7 +323,7 @@ TOOLS_SCHEMA = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "team_name": {"type": "string", "description": "Football team name e.g. Arsenal or Chelsea"}
+                    "team_name": {"type": "string", "description": "Football team name e.g. Hull City or Manchester United"}
                 },
                 "required": ["team_name"]
             }
