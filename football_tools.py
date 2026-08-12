@@ -13,23 +13,20 @@ API_FOOTBALL_KEY = st.secrets.get("API_FOOTBALL_KEY") if "API_FOOTBALL_KEY" in s
 FD_BASE = "https://api.football-data.org/v4"
 APIF_BASE = "https://v3.football.api-sports.io"
 
-FD_HEADERS = {"X-Auth-Token": FD_KEY}
-APIF_HEADERS = {"x-apisports-key": API_FOOTBALL_KEY}
+FD_HEADERS = {"X-Auth-Token": FD_KEY} if FD_KEY else {}
+APIF_HEADERS = {"x-apisports-key": API_FOOTBALL_KEY} if API_FOOTBALL_KEY else {}
 
 
 def resolve_team_id(team_name: str):
     """
-    Tries multiple search permutations to resolve a team name to an API-Football Team ID.
+    Resolves a team name to an API-Football Team ID using fallback search logic.
     """
     clean = team_name.strip()
     for suffix in [" AFC", " FC", " Football Club", " Club"]:
         if clean.endswith(suffix):
             clean = clean[:-len(suffix)].strip()
 
-    # Query variations in sequence until a match is found
     search_queries = [clean, team_name.strip()]
-    
-    # Add key word query if multiple words exist (e.g., "Hull" from "Hull City")
     words = clean.split()
     if len(words) > 1:
         search_queries.append(words[0])
@@ -39,7 +36,6 @@ def resolve_team_id(team_name: str):
             res = requests.get(f"{APIF_BASE}/teams?search={query}", headers=APIF_HEADERS, timeout=10)
             if res.status_code == 200 and res.json().get("response"):
                 response_list = res.json()["response"]
-                # Look for exact match first, fallback to first item
                 for item in response_list:
                     t_name = item["team"]["name"]
                     if clean.lower() in t_name.lower() or t_name.lower() in clean.lower():
@@ -55,7 +51,7 @@ def resolve_team_id(team_name: str):
 # 1. UPCOMING FIXTURES TOOL
 # -----------------------------------------------------------------------------
 def get_upcoming_fixtures(league="PL", limit=5):
-    """Fetches the next 'limit' upcoming scheduled matches from Football-Data.org."""
+    """Fetches upcoming scheduled matches from Football-Data.org."""
     url = f"{FD_BASE}/competitions/{league}/matches?status=SCHEDULED"
     
     try:
@@ -73,89 +69,108 @@ def get_upcoming_fixtures(league="PL", limit=5):
 
         return [
             {
-                "id": m["id"],
-                "home_team": m["homeTeam"]["name"],
-                "away_team": m["awayTeam"]["name"],
-                "utc_date": m["utcDate"]
+                "id": m.get("id"),
+                "home_team": m.get("homeTeam", {}).get("name"),
+                "away_team": m.get("awayTeam", {}).get("name"),
+                "utc_date": m.get("utcDate")
             }
             for m in upcoming_slice
         ]
 
     except Exception as e:
-        print(f"Exception fetching upcoming fixtures: {e}")
-        return []
+        return {"error": f"Exception fetching upcoming fixtures: {str(e)}"}
 
 
 # -----------------------------------------------------------------------------
-# 2. FULL TEAM 22 METRICS TOOL
+# 2. LAST 5 MATCHES STATS TOOL
 # -----------------------------------------------------------------------------
-def get_team_full_22_stats(team_name):
-    """Queries API-Football for team stats across 22 key metrics."""
+def get_team_last_5_matches(team_name: str):
+    """Retrieves form, results, goals, and clean sheets from the last 5 matches for a team."""
     team_id, official_name = resolve_team_id(team_name)
     if not team_id:
         return {"error": f"Team '{team_name}' could not be resolved."}
 
-    s_res = None
-    for season in ["2025", "2024"]:
-        for league_id in [39, 40, 45, 2, 3]:  # Premier League, Championship, FA Cup, Champions League, Europa League
-            url = f"{APIF_BASE}/teams/statistics?team={team_id}&league={league_id}&season={season}"
-            try:
-                resp = requests.get(url, headers=APIF_HEADERS, timeout=10)
-                if resp.status_code == 200 and resp.json().get("response"):
-                    data = resp.json()["response"]
-                    if data.get("fixtures", {}).get("played", {}).get("total", 0) > 0:
-                        s_res = resp
-                        break
-            except Exception:
-                continue
-        if s_res:
-            break
+    url = f"{APIF_BASE}/fixtures?team={team_id}&last=5"
+    try:
+        res = requests.get(url, headers=APIF_HEADERS, timeout=10)
+        if res.status_code != 200 or not res.json().get("response"):
+            return {"error": f"No recent match data found for {official_name}."}
 
-    if not s_res:
-        return {"error": f"Could not fetch match statistics for {official_name}."}
+        raw_fixtures = res.json()["response"]
+        match_history = []
+        wins = 0
+        draws = 0
+        losses = 0
+        goals_scored = 0
+        goals_conceded = 0
+        clean_sheets = 0
+        failed_to_score = 0
 
-    s = s_res.json()["response"]
-    fixtures = s.get("fixtures", {})
-    goals = s.get("goals", {})
-    clean_sheets = s.get("clean_sheet", {})
-    failed_to_score = s.get("failed_to_score", {})
-    penalty = s.get("penalty", {})
-    cards = s.get("cards", {})
+        for f in raw_fixtures:
+            home_id = f.get("teams", {}).get("home", {}).get("id")
+            home_name = f.get("teams", {}).get("home", {}).get("name")
+            away_name = f.get("teams", {}).get("away", {}).get("name")
+            
+            g_home = f.get("goals", {}).get("home", 0) or 0
+            g_away = f.get("goals", {}).get("away", 0) or 0
 
-    played = fixtures.get("played", {}).get("total", 1) or 1
+            is_home = (home_id == team_id)
+            team_score = g_home if is_home else g_away
+            opp_score = g_away if is_home else g_home
+            opp_name = away_name if is_home else home_name
 
-    return {
-        "team": official_name,
-        "1_matches_played": played,
-        "2_wins_total": fixtures.get("wins", {}).get("total", 0),
-        "3_draws_total": fixtures.get("draws", {}).get("total", 0),
-        "4_losses_total": fixtures.get("loses", {}).get("total", 0),
-        "5_goals_scored_total": goals.get("for", {}).get("total", {}).get("total", 0),
-        "6_goals_conceded_total": goals.get("against", {}).get("total", {}).get("total", 0),
-        "7_avg_goals_scored_per_game": goals.get("for", {}).get("average", {}).get("total", "0.0"),
-        "8_avg_goals_conceded_per_game": goals.get("against", {}).get("average", {}).get("total", "0.0"),
-        "9_clean_sheets_total": clean_sheets.get("total", 0),
-        "10_failed_to_score_total": failed_to_score.get("total", 0),
-        "11_home_wins": fixtures.get("wins", {}).get("home", 0),
-        "12_away_wins": fixtures.get("wins", {}).get("away", 0),
-        "13_home_goals_scored": goals.get("for", {}).get("total", {}).get("home", 0),
-        "14_away_goals_scored": goals.get("for", {}).get("total", {}).get("away", 0),
-        "15_penalties_scored": penalty.get("scored", {}).get("total", 0),
-        "16_penalties_missed": penalty.get("missed", {}).get("total", 0),
-        "17_yellow_cards_total": cards.get("yellow", {}).get("total", 0) or sum([v.get("total") or 0 for v in cards.get("yellow", {}).values() if isinstance(v, dict)]),
-        "18_red_cards_total": cards.get("red", {}).get("total", 0) or sum([v.get("total") or 0 for v in cards.get("red", {}).values() if isinstance(v, dict)]),
-        "19_biggest_win_home": s.get("biggest", {}).get("wins", {}).get("home"),
-        "20_biggest_win_away": s.get("biggest", {}).get("wins", {}).get("away"),
-        "21_biggest_loss_home": s.get("biggest", {}).get("loses", {}).get("home"),
-        "22_biggest_loss_away": s.get("biggest", {}).get("loses", {}).get("away")
-    }
+            if team_score > opp_score:
+                result = "WIN"
+                wins += 1
+            elif team_score == opp_score:
+                result = "DRAW"
+                draws += 1
+            else:
+                result = "LOSS"
+                losses += 1
+
+            goals_scored += team_score
+            goals_conceded += opp_score
+
+            if opp_score == 0:
+                clean_sheets += 1
+            if team_score == 0:
+                failed_to_score += 1
+
+            match_history.append({
+                "date": f.get("fixture", {}).get("date", "")[:10],
+                "competition": f.get("league", {}).get("name"),
+                "venue": "Home" if is_home else "Away",
+                "opponent": opp_name,
+                "score": f"{g_home}-{g_away}",
+                "outcome": result
+            })
+
+        total_played = len(raw_fixtures)
+        return {
+            "team": official_name,
+            "last_5_summary": {
+                "matches_played": total_played,
+                "record": f"{wins}W - {draws}D - {losses}L",
+                "total_goals_scored": goals_scored,
+                "total_goals_conceded": goals_conceded,
+                "avg_goals_scored_per_game": round(goals_scored / max(1, total_played), 2),
+                "avg_goals_conceded_per_game": round(goals_conceded / max(1, total_played), 2),
+                "clean_sheets": clean_sheets,
+                "failed_to_score": failed_to_score
+            },
+            "recent_matches": match_history
+        }
+
+    except Exception as e:
+        return {"error": f"Error fetching last 5 matches for {official_name}: {str(e)}"}
 
 
 # -----------------------------------------------------------------------------
-# 3. DEEP HEAD-TO-HEAD (H2H) TOOL
+# 3. HEAD-TO-HEAD (LAST 5 MEETINGS) TOOL
 # -----------------------------------------------------------------------------
-def get_deep_head_to_head(team1_name, team2_name):
-    """Fetches head-to-head match records between two teams."""
+def get_head_to_head_last_5(team1_name: str, team2_name: str):
+    """Retrieves the last 5 head-to-head match results between two teams."""
     t1_id, t1_official = resolve_team_id(team1_name)
     t2_id, t2_official = resolve_team_id(team2_name)
 
@@ -164,119 +179,63 @@ def get_deep_head_to_head(team1_name, team2_name):
     if not t2_id:
         return {"error": f"Team '{team2_name}' not found."}
 
-    h2h_url = f"{APIF_BASE}/fixtures/headtohead?h2h={t1_id}-{t2_id}"
+    h2h_url = f"{APIF_BASE}/fixtures/headtohead?h2h={t1_id}-{t2_id}&last=5"
     try:
         res = requests.get(h2h_url, headers=APIF_HEADERS, timeout=10)
         if res.status_code != 200 or not res.json().get("response"):
             return {"error": f"No H2H history found between {t1_official} and {t2_official}."}
 
-        fixtures = res.json()["response"][:8]
+        fixtures = res.json()["response"]
         history = []
+        t1_wins = 0
+        t2_wins = 0
+        draws = 0
+
         for f in fixtures:
             league_name = f.get("league", {}).get("name")
             match_date = f.get("fixture", {}).get("date", "")[:10]
-            home = f.get("teams", {}).get("home", {}).get("name")
-            away = f.get("teams", {}).get("away", {}).get("name")
-            goals_home = f.get("goals", {}).get("home")
-            goals_away = f.get("goals", {}).get("away")
+            home_id = f.get("teams", {}).get("home", {}).get("id")
+            home_name = f.get("teams", {}).get("home", {}).get("name")
+            away_name = f.get("teams", {}).get("away", {}).get("name")
+            goals_home = f.get("goals", {}).get("home", 0) or 0
+            goals_away = f.get("goals", {}).get("away", 0) or 0
+
+            if goals_home == goals_away:
+                draws += 1
+            elif (home_id == t1_id and goals_home > goals_away) or (home_id != t1_id and goals_away > goals_home):
+                t1_wins += 1
+            else:
+                t2_wins += 1
 
             history.append({
                 "date": match_date,
                 "competition": league_name,
-                "match": f"{home} {goals_home} - {goals_away} {away}"
+                "match": f"{home_name} {goals_home} - {goals_away} {away_name}"
             })
 
         return {
             "teams": [t1_official, t2_official],
-            "recent_meetings_count": len(history),
-            "history": history
+            "h2h_summary": {
+                "total_meetings": len(history),
+                f"{t1_official}_wins": t1_wins,
+                f"{t2_official}_wins": t2_wins,
+                "draws": draws
+            },
+            "last_5_meetings": history
         }
     except Exception as e:
-        return {"error": f"Error fetching H2H: {e}"}
+        return {"error": f"Error fetching H2H history: {str(e)}"}
 
 
 # -----------------------------------------------------------------------------
-# 4. PLAYER STATISTICS TOOL
-# -----------------------------------------------------------------------------
-def get_top_player_stats(team_name):
-    """Retrieves player statistics across key player props markets."""
-    team_id, official_name = resolve_team_id(team_name)
-    if not team_id:
-        return {"error": f"Team '{team_name}' not found for player statistics."}
-
-    p_res = None
-    for season in ["2025", "2024"]:
-        players_url = f"{APIF_BASE}/players?team={team_id}&season={season}"
-        try:
-            resp = requests.get(players_url, headers=APIF_HEADERS, timeout=10)
-            if resp.status_code == 200 and resp.json().get("response"):
-                p_res = resp
-                break
-        except Exception:
-            continue
-
-    if not p_res:
-        return {"error": f"Could not retrieve player statistics for {official_name}."}
-
-    players_raw = p_res.json()["response"]
-    parsed_players = []
-
-    for item in players_raw:
-        player_info = item["player"]
-        stats_list = item["statistics"]
-        if not stats_list:
-            continue
-        
-        s = stats_list[0]
-        parsed_players.append({
-            "name": player_info.get("name"),
-            "position": s.get("games", {}).get("position"),
-            "appearances": s.get("games", {}).get("appearences") or 0,
-            "shots_total": s.get("shots", {}).get("total") or 0,
-            "shots_on_target": s.get("shots", {}).get("on") or 0,
-            "tackles_total": s.get("tackles", {}).get("total") or 0,
-            "yellow_cards": s.get("cards", {}).get("yellow") or 0,
-            "red_cards": s.get("cards", {}).get("red") or 0
-        })
-
-    if not parsed_players:
-        return {"error": f"No detailed player profiles returned for {official_name}."}
-
-    top_shots = sorted(parsed_players, key=lambda x: x["shots_total"], reverse=True)[:3]
-    top_shots_on_target = sorted(parsed_players, key=lambda x: x["shots_on_target"], reverse=True)[:3]
-    top_tackles = sorted(parsed_players, key=lambda x: x["tackles_total"], reverse=True)[:3]
-    top_bookings = sorted(parsed_players, key=lambda x: x["yellow_cards"], reverse=True)[:3]
-
-    return {
-        "team": official_name,
-        "most_shots": [
-            {"player": p["name"], "position": p["position"], "total_shots": p["shots_total"], "per_game": round(p["shots_total"] / max(1, p["appearances"]), 2)}
-            for p in top_shots
-        ],
-        "most_shots_on_target": [
-            {"player": p["name"], "position": p["position"], "shots_on_target": p["shots_on_target"], "per_game": round(p["shots_on_target"] / max(1, p["appearances"]), 2)}
-            for p in top_shots_on_target
-        ],
-        "most_tackles": [
-            {"player": p["name"], "position": p["position"], "tackles": p["tackles_total"], "per_game": round(p["tackles_total"] / max(1, p["appearances"]), 2)}
-            for p in top_tackles
-        ],
-        "most_bookings": [
-            {"player": p["name"], "position": p["position"], "yellow_cards": p["yellow_cards"], "red_cards": p["red_cards"]}
-            for p in top_bookings
-        ]
-    }
-
-
-# -----------------------------------------------------------------------------
-# 5. OPENAI TOOL SCHEMAS & MAPPINGS
+# 4. OPENAI TOOL SCHEMAS & MAPPINGS
 # -----------------------------------------------------------------------------
 TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
             "name": "get_upcoming_fixtures",
-            "description": "Retrieves upcoming scheduled Premier League match fixtures.",
+            "description": "Retrieves upcoming scheduled match fixtures.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -289,8 +248,8 @@ TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
-            "name": "get_team_full_22_stats",
-            "description": "Retrieves 22 comprehensive team metrics including goals, clean sheets, penalties, and discipline.",
+            "name": "get_team_last_5_matches",
+            "description": "Retrieves form, results, goals, clean sheets, and scorelines from the last 5 matches for a team.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -303,8 +262,8 @@ TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
-            "name": "get_deep_head_to_head",
-            "description": "Retrieves head-to-head match history between two football teams.",
+            "name": "get_head_to_head_last_5",
+            "description": "Retrieves the last 5 head-to-head match results between two football teams.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -314,26 +273,11 @@ TOOLS_SCHEMA = [
                 "required": ["team1_name", "team2_name"]
             }
         }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "get_top_player_stats",
-            "description": "Retrieves top 3 players for a team for total shots, shots on target, tackles, and bookings.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "team_name": {"type": "string", "description": "Football team name e.g. Hull City or Manchester United"}
-                },
-                "required": ["team_name"]
-            }
-        }
     }
 ]
 
 TOOL_MAPPING = {
     "get_upcoming_fixtures": get_upcoming_fixtures,
-    "get_team_full_22_stats": get_team_full_22_stats,
-    "get_deep_head_to_head": get_deep_head_to_head,
-    "get_top_player_stats": get_top_player_stats
+    "get_team_last_5_matches": get_team_last_5_matches,
+    "get_head_to_head_last_5": get_head_to_head_last_5
 }
