@@ -18,10 +18,20 @@ APIF_HEADERS = {"x-apisports-key": API_FOOTBALL_KEY}
 
 
 # -----------------------------------------------------------------------------
+# HELPER: SANITIZE TEAM NAMES
+# -----------------------------------------------------------------------------
+def sanitize_team_name(name: str) -> str:
+    """Strips common club suffixes so the API search endpoint matches accurately."""
+    clean = name.strip()
+    for suffix in [" AFC", " FC", " Football Club", " Club"]:
+        if clean.endswith(suffix):
+            clean = clean[:-len(suffix)].strip()
+    return clean
+
+
+# -----------------------------------------------------------------------------
 # 1. UPCOMING FIXTURES TOOL
 # -----------------------------------------------------------------------------
-# Replace get_upcoming_fixtures in football_tools.py with this:
-
 def get_upcoming_fixtures(league="PL", limit=5):
     """Fetches the next 'limit' upcoming scheduled matches from Football-Data.org."""
     url = f"{FD_BASE}/competitions/{league}/matches?status=SCHEDULED"
@@ -42,7 +52,7 @@ def get_upcoming_fixtures(league="PL", limit=5):
                 all_matches = res_fb.json().get("matches", [])
                 matches = [m for m in all_matches if m.get("status") in ["SCHEDULED", "TIMED", "POSTPONED"]]
 
-        # CRITICAL FIX: Slice to return only the next 'limit' fixtures (e.g. 5)
+        # Slice to return only the next 'limit' fixtures (default: 5)
         upcoming_slice = matches[:limit]
 
         return [
@@ -66,26 +76,35 @@ def get_upcoming_fixtures(league="PL", limit=5):
 def get_team_full_22_stats(team_name):
     """
     Queries API-Football for comprehensive team stats across 22 key metrics.
+    Automatically handles team name sanitization and searches across multiple leagues/seasons.
     """
-    # Search for Team ID
-    res = requests.get(f"{APIF_BASE}/teams?search={team_name}", headers=APIF_HEADERS)
+    clean_name = sanitize_team_name(team_name)
+    
+    # 1. Search for Team ID
+    res = requests.get(f"{APIF_BASE}/teams?search={clean_name}", headers=APIF_HEADERS)
     if res.status_code != 200 or not res.json().get("response"):
-        return {"error": f"Team '{team_name}' not found."}
+        return {"error": f"Team '{team_name}' (searched as '{clean_name}') not found."}
 
     team_data = res.json()["response"][0]["team"]
     team_id = team_data["id"]
     official_name = team_data["name"]
 
-    # Get Team Statistics
-    stats_url = f"{APIF_BASE}/teams/statistics?team={team_id}&league=39&season=2025"
-    s_res = requests.get(stats_url, headers=APIF_HEADERS)
-    
-    if s_res.status_code != 200 or not s_res.json().get("response"):
-        # Fallback to previous season parameter if current season data is pending
-        s_res = requests.get(f"{APIF_BASE}/teams/statistics?team={team_id}&league=39&season=2024", headers=APIF_HEADERS)
+    # 2. Query Team Statistics (try recent seasons 2025 and 2024 across major leagues)
+    s_res = None
+    for season in ["2025", "2024"]:
+        for league_id in [39, 40, 45, 2, 3]:  # Premier League, Championship, FA Cup, Champions League, Europa League
+            url = f"{APIF_BASE}/teams/statistics?team={team_id}&league={league_id}&season={season}"
+            resp = requests.get(url, headers=APIF_HEADERS)
+            if resp.status_code == 200 and resp.json().get("response"):
+                data = resp.json()["response"]
+                if data.get("fixtures", {}).get("played", {}).get("total", 0) > 0:
+                    s_res = resp
+                    break
+        if s_res:
+            break
 
-    if s_res.status_code != 200 or not s_res.json().get("response"):
-        return {"error": f"Could not fetch team statistics for {official_name}."}
+    if not s_res:
+        return {"error": f"Could not fetch match statistics for {official_name}."}
 
     s = s_res.json()["response"]
     fixtures = s.get("fixtures", {})
@@ -97,8 +116,7 @@ def get_team_full_22_stats(team_name):
 
     played = fixtures.get("played", {}).get("total", 1) or 1
 
-    # Extract 22 Quantitative Metrics
-    metrics_22 = {
+    return {
         "team": official_name,
         "1_matches_played": played,
         "2_wins_total": fixtures.get("wins", {}).get("total", 0),
@@ -124,8 +142,6 @@ def get_team_full_22_stats(team_name):
         "22_biggest_loss_away": s.get("biggest", {}).get("loses", {}).get("away")
     }
 
-    return metrics_22
-
 
 # -----------------------------------------------------------------------------
 # 3. DEEP HEAD-TO-HEAD (H2H) TOOL
@@ -133,15 +149,19 @@ def get_team_full_22_stats(team_name):
 def get_deep_head_to_head(team1_name, team2_name):
     """
     Fetches the historical head-to-head match records between two teams.
+    Handles team name sanitization for improved match finding.
     """
+    t1_clean = sanitize_team_name(team1_name)
+    t2_clean = sanitize_team_name(team2_name)
+
     # 1. Resolve Team 1
-    t1_res = requests.get(f"{APIF_BASE}/teams?search={team1_name}", headers=APIF_HEADERS)
+    t1_res = requests.get(f"{APIF_BASE}/teams?search={t1_clean}", headers=APIF_HEADERS)
     if not t1_res.json().get("response"):
         return {"error": f"Team '{team1_name}' not found."}
     t1_id = t1_res.json()["response"][0]["team"]["id"]
 
     # 2. Resolve Team 2
-    t2_res = requests.get(f"{APIF_BASE}/teams?search={team2_name}", headers=APIF_HEADERS)
+    t2_res = requests.get(f"{APIF_BASE}/teams?search={t2_clean}", headers=APIF_HEADERS)
     if not t2_res.json().get("response"):
         return {"error": f"Team '{team2_name}' not found."}
     t2_id = t2_res.json()["response"][0]["team"]["id"]
@@ -188,7 +208,9 @@ def get_top_player_stats(team_name):
     - Tackles
     - Bookings / Yellow Cards
     """
-    res = requests.get(f"{APIF_BASE}/teams?search={team_name}", headers=APIF_HEADERS)
+    clean_name = sanitize_team_name(team_name)
+    
+    res = requests.get(f"{APIF_BASE}/teams?search={clean_name}", headers=APIF_HEADERS)
     if res.status_code != 200 or not res.json().get("response"):
         return {"error": f"Team '{team_name}' not found for player statistics."}
 
@@ -196,14 +218,15 @@ def get_top_player_stats(team_name):
     team_id = team_data["id"]
     official_name = team_data["name"]
 
-    # Query Team Player Statistics
-    players_url = f"{APIF_BASE}/players?team={team_id}&season=2025"
-    p_res = requests.get(players_url, headers=APIF_HEADERS)
+    p_res = None
+    for season in ["2025", "2024"]:
+        players_url = f"{APIF_BASE}/players?team={team_id}&season={season}"
+        resp = requests.get(players_url, headers=APIF_HEADERS)
+        if resp.status_code == 200 and resp.json().get("response"):
+            p_res = resp
+            break
 
-    if p_res.status_code != 200 or not p_res.json().get("response"):
-        p_res = requests.get(f"{APIF_BASE}/players?team={team_id}&season=2024", headers=APIF_HEADERS)
-
-    if p_res.status_code != 200 or not p_res.json().get("response"):
+    if not p_res:
         return {"error": f"Could not retrieve player statistics for {official_name}."}
 
     players_raw = p_res.json()["response"]
