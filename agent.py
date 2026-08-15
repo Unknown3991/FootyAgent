@@ -1,114 +1,69 @@
 # agent.py
-import os
 import json
-import streamlit as st
 from openai import OpenAI
+import streamlit as st
+import os
 from football_tools import TOOLS_SCHEMA, TOOL_MAPPING
 
-# 1. Initialize OpenAI Client (Handles both Streamlit Cloud Secrets & Local Env)
-api_key = st.secrets.get("OPENAI_API_KEY") if "OPENAI_API_KEY" in st.secrets else os.getenv("OPENAI_API_KEY")
-client = OpenAI(api_key=api_key)
+OPENAI_KEY = st.secrets.get("OPENAI_API_KEY") if "OPENAI_API_KEY" in st.secrets else os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=OPENAI_KEY) if OPENAI_KEY else None
 
-# 2. Comprehensive System Prompt focused on Last 5 Matches Analysis
-SYSTEM_PROMPT = """You are a Lead Football Betting Quantitative Analyst.
+SYSTEM_PROMPT = """
+You are AJL Analytics, an elite quant football analyst and betting intelligence agent.
+Your objective is to analyze football fixtures using Expected Goals (xG), corner trends, 
+clean sheet rates, and key player shooting stats (shots, shots on target, goals).
 
-TOOL NAMING RULE:
-- When calling tool functions, always pass simple core team names without official club suffixes (e.g., use 'Hull City' instead of 'Hull City AFC', 'Manchester United' instead of 'Manchester United FC').
+Always format match predictions cleanly with:
+1. Match Statistical Overview (Form, xG home/away, Corner averages, Key Player prop trends).
+2. Recommended 3-Tier Bet Builder:
+   - 🟢 High Confidence (Anchor): Safe/low-risk selection backed by high statistical probability.
+   - 🟡 Medium Confidence (Value): Balanced value bet combining team and player props.
+   - 🔴 High Yield (Longshot Builder): Multi-leg high-odds builder.
 
-CRITICAL INSTRUCTIONS:
-- When analyzing a match between two teams, call `get_team_last_5_matches` for BOTH teams AND call `get_head_to_head_last_5` for the match-up.
-- Output your ENTIRE analysis strictly using BULLET POINTS. Avoid dense prose paragraphs.
-
-REQUIRED RESPONSE STRUCTURE (STRICT BULLET POINTS):
-
-### Match Overview
-* **Fixture:** [Home Team] vs [Away Team]
-* **Context:** [Brief match background, competition, and current stakes]
-
-### [Home Team] Last 5 Matches Form & Stats
-* **Record (Last 5):** [e.g. 3W - 1D - 1L]
-* **Goals Scored:** [Total goals] ([Average per game] / game)
-* **Goals Conceded:** [Total conceded] ([Average per game] / game)
-* **Clean Sheets:** [Count]
-* **Failed to Score:** [Count]
-* **Recent Match Results:**
-  * [Date] | [Competition] | [Venue] vs [Opponent] | Score: [Score] ([Outcome])
-  * [List all matches returned by tool]
-
-### [Away Team] Last 5 Matches Form & Stats
-* **Record (Last 5):** [e.g. 2W - 2D - 1L]
-* **Goals Scored:** [Total goals] ([Average per game] / game)
-* **Goals Conceded:** [Total conceded] ([Average per game] / game)
-* **Clean Sheets:** [Count]
-* **Failed to Score:** [Count]
-* **Recent Match Results:**
-  * [Date] | [Competition] | [Venue] vs [Opponent] | Score: [Score] ([Outcome])
-  * [List all matches returned by tool]
-
-### Head-to-Head (H2H) History (Last 5 Meetings)
-* **H2H Summary:** [Total Meetings, Team 1 Wins, Team 2 Wins, Draws]
-* **Recent Meetings:**
-  * [List individual H2H match scorelines returned by tool]
-
-### Key Form & Statistical Trends
-* [Bullet point highlighting scoring trends (Over/Under 2.5 goals, Both Teams to Score)]
-* [Bullet point highlighting defensive trends and clean sheet consistency]
-* [Bullet point highlighting home/away performance variances]
-
-### Recommended Betting Options
-Provide 4 distinct betting options directly supported by the last 5 match metrics:
-
-1. **Option 1: Primary Value Bet (Match Result / Double Chance)**
-2. **Option 2: Goals Market Special (Over/Under 2.5 Goals or Both Teams To Score)**
-3. **Option 3: Team Prop / Half-Time Special**
-4. **Option 4: High-Yield Value / Bet Builder Combination**
+Keep prose direct, concise, and structured. Use bold formatting and clean bullet points.
 """
 
+def run_ajl_agent(user_prompt: str):
+    if not client:
+        return "OpenAI API Key is missing. Please set OPENAI_API_KEY in Streamlit Secrets."
 
-def run_football_agent(messages):
-    """
-    Executes the multi-step OpenAI Tool Calling Agent loop.
-    """
-    # Prepend System Prompt to history
-    conversation = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_prompt}
+    ]
 
-    # Agent Loop (max 5 tool iterations)
-    for _ in range(5):
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=conversation,
-            tools=TOOLS_SCHEMA,
-            tool_choice="auto"
-        )
+    # First completion call
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        tools=TOOLS_SCHEMA,
+        tool_choice="auto"
+    )
 
-        response_message = response.choices[0].message
-        conversation.append(response_message)
+    response_message = response.choices[0].message
+    tool_calls = response_message.tool_calls
 
-        # Check if model wants to call tools
-        tool_calls = response_message.tool_calls
-        if not tool_calls:
-            # Final text answer reached
-            return response_message.content, conversation[1:]
-
-        # Execute requested tools
+    if tool_calls:
+        messages.append(response_message)
         for tool_call in tool_calls:
-            func_name = tool_call.function.name
-            func_args = json.loads(tool_call.function.arguments)
+            function_name = tool_call.function.name
+            function_to_call = TOOL_MAPPING.get(function_name)
+            function_args = json.loads(tool_call.function.arguments)
 
-            if func_name in TOOL_MAPPING:
-                tool_output = TOOL_MAPPING[func_name](**func_args)
-            else:
-                tool_output = {"error": f"Tool '{func_name}' not implemented."}
+            tool_output = function_to_call(**function_args)
 
-            conversation.append({
-                "role": "tool",
+            messages.append({
                 "tool_call_id": tool_call.id,
+                "role": "tool",
+                "name": function_name,
                 "content": json.dumps(tool_output)
             })
 
-    # Final fallback if loop ends
-    final_response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=conversation
-    )
-    return final_response.choices[0].message.content, conversation[1:]
+        # Second completion after tool execution
+        second_response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        return second_response.choices[0].message.content
+
+    return response_message.content
