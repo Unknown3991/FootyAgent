@@ -1,9 +1,9 @@
 # app.py
 import streamlit as st
-from mock_data import MOCK_MATCH_DATA
+from agent import run_ajl_agent
 
 # -----------------------------------------------------------------------------
-# 1. PAGE CONFIGURATION & MINIMALIST ULTRA-CLEAN STYLING
+# 1. PAGE CONFIGURATION & MINIMALIST STYLING
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="AJL Analytics",
@@ -90,41 +90,12 @@ footer {visibility: hidden;}
     margin-bottom: 16px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.02);
 }
-
-/* Form Badges */
-.badge {
-    display: inline-block;
-    width: 22px;
-    height: 22px;
-    line-height: 22px;
-    border-radius: 50%;
-    text-align: center;
-    color: white;
-    font-size: 10px;
-    font-weight: 700;
-    margin-right: 3px;
-}
-.badge-w { background-color: #10B981; }
-.badge-d { background-color: #F59E0B; }
-.badge-l { background-color: #EF4444; }
-
-/* Bet Tier Cards */
-.tier-card {
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 12px;
-    border-left: 4px solid #09090B;
-    background: #F4F4F5;
-}
-.tier-high { border-left-color: #10B981; }
-.tier-med { border-left-color: #F59E0B; }
-.tier-yield { border-left-color: #8B5CF6; }
 </style>
 """
 st.markdown(MINIMAL_CSS, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 2. TOP HEADER NAVIGATION
+# 2. TOP NAVIGATION BAR
 # -----------------------------------------------------------------------------
 st.markdown("""
 <div class="ajl-top-nav">
@@ -142,123 +113,42 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 3. SEARCH & MATCH PREVIEW HEADER
+# 3. INITIALIZE SESSION STATE & CHAT HISTORY
 # -----------------------------------------------------------------------------
-st.title("⚽ Match Intelligence & Bet Builder")
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
 
-data = MOCK_MATCH_DATA
-fixture = data["fixture"]
-home = data["home_stats"]
-away = data["away_stats"]
-
-# Fixture Header Card
-st.markdown(f"""
-<div class="clean-card">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            <h2 style="margin: 0; font-size: 22px; color: #09090B;">{fixture['home_team']} vs {fixture['away_team']}</h2>
-            <p style="margin: 4px 0 0 0; font-size: 13px; color: #71717A;">{fixture['league']} • {fixture['kickoff']} • {fixture['venue']}</p>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# 4. TEAM METRICS & FORM COMPARISON
-# -----------------------------------------------------------------------------
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown(f"""
-    <div class="clean-card">
-        <h3 style="margin: 0 0 12px 0; font-size: 16px;">{home['team']} (Home Form)</h3>
-        <p style="font-size: 13px; color: #71717A;">Record: <strong>{home['record_last_5']}</strong></p>
-        <div style="margin-bottom: 12px;">
-            <span class="badge badge-w">W</span><span class="badge badge-w">W</span><span class="badge badge-w">W</span><span class="badge badge-w">W</span><span class="badge badge-w">W</span>
-        </div>
-        <hr style="border: none; border-top: 1px solid #E4E4E7; margin: 12px 0;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-            <div><strong>Avg Goals:</strong> {home['goals_scored_avg']}</div>
-            <div><strong>Avg xG:</strong> {home['avg_xg']}</div>
-            <div><strong>Avg Corners:</strong> {home['avg_corners_overall']}</div>
-            <div><strong>Clean Sheets:</strong> {home['clean_sheets']}</div>
-        </div>
+# Hero Header (Only shows on fresh load before first search)
+if not st.session_state["messages"]:
+    st.markdown("""
+    <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+        <div class="ajl-logo-circle" style="width: 48px; height: 48px; font-size: 18px; margin: 0 auto 16px auto;">AJL</div>
+        <h2 style="font-weight: 600; font-size: 22px; color: #09090B; margin: 0;">How can AJL help with your match prediction today?</h2>
+        <p style="color: #71717A; font-size: 14px; margin-top: 6px;">Try asking: <em>"Analyze Arsenal vs Coventry"</em> or <em>"West Ham vs Everton"</em></p>
     </div>
     """, unsafe_allow_html=True)
 
-with col2:
-    st.markdown(f"""
-    <div class="clean-card">
-        <h3 style="margin: 0 0 12px 0; font-size: 16px;">{away['team']} (Away Form)</h3>
-        <p style="font-size: 13px; color: #71717A;">Record: <strong>{away['record_last_5']}</strong></p>
-        <div style="margin-bottom: 12px;">
-            <span class="badge badge-w">W</span><span class="badge badge-l">L</span><span class="badge badge-d">D</span><span class="badge badge-w">W</span><span class="badge badge-l">L</span>
-        </div>
-        <hr style="border: none; border-top: 1px solid #E4E4E7; margin: 12px 0;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-            <div><strong>Avg Goals:</strong> {away['goals_scored_avg']}</div>
-            <div><strong>Avg xG:</strong> {away['avg_xg']}</div>
-            <div><strong>Avg Corners:</strong> {away['avg_corners_overall']}</div>
-            <div><strong>Clean Sheets:</strong> {away['clean_sheets']}</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+# Render Chat History
+for msg in st.session_state["messages"]:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
 # -----------------------------------------------------------------------------
-# 5. PLAYER PROPS & 3-TIER BET BUILDER
+# 4. CHAT INPUT & DYNAMIC AGENT EXECUTION
 # -----------------------------------------------------------------------------
-col_players, col_bets = st.columns([1, 1])
+user_query = st.chat_input("Ask AJL a question or enter fixture e.g. 'Analyze Arsenal vs Coventry'...")
 
-with col_players:
-    st.subheader("🎯 Key Player Shooting Metrics")
-    for p in data["player_props"]:
-        st.markdown(f"""
-        <div class="clean-card">
-            <h4 style="margin:0; font-size:15px; color:#09090B;">{p['name']} ({p['team']})</h4>
-            <p style="margin: 4px 0 0 0; font-size: 12px; color: #71717A;">
-                <strong>{p['goals_last_5']}</strong> goals in last 5 games • 
-                <strong>{p['shots_on_target_last_5']}</strong> shots on target • 
-                Avg <strong>{p['avg_shots_per_game']}</strong> shots/game
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+if user_query:
+    # 1. Store & Render User Message
+    st.session_state["messages"].append({"role": "user", "content": user_query})
+    with st.chat_message("user"):
+        st.markdown(user_query)
 
-with col_bets:
-    st.subheader("🎲 Recommended 3-Tier Bets")
-    tiers = data["bet_builder_tiers"]
+    # 2. Call AI Agent & Render Response
+    with st.chat_message("assistant"):
+        with st.spinner("Analyzing match statistics, xG, corners & player props..."):
+            response = run_ajl_agent(user_query)
+            st.markdown(response)
 
-    # High Confidence
-    st.markdown(f"""
-    <div class="tier-card tier-high">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <strong>{tiers['high_confidence']['title']}</strong>
-            <span style="background:#10B981; color:white; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:700;">Odds {tiers['high_confidence']['odds']}</span>
-        </div>
-        <div style="font-size:14px; font-weight:600; margin:6px 0;">{tiers['high_confidence']['selection']}</div>
-        <div style="font-size:12px; color:#52525B;">{tiers['high_confidence']['reasoning']}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Medium Confidence
-    st.markdown(f"""
-    <div class="tier-card tier-med">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <strong>{tiers['medium_confidence']['title']}</strong>
-            <span style="background:#F59E0B; color:white; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:700;">Odds {tiers['medium_confidence']['odds']}</span>
-        </div>
-        <div style="font-size:14px; font-weight:600; margin:6px 0;">{tiers['medium_confidence']['selection']}</div>
-        <div style="font-size:12px; color:#52525B;">{tiers['medium_confidence']['reasoning']}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # High Yield
-    st.markdown(f"""
-    <div class="tier-card tier-yield">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <strong>{tiers['high_yield']['title']}</strong>
-            <span style="background:#8B5CF6; color:white; padding:2px 8px; border-radius:12px; font-size:12px; font-weight:700;">Odds {tiers['high_yield']['odds']}</span>
-        </div>
-        <div style="font-size:14px; font-weight:600; margin:6px 0;">{tiers['high_yield']['selection']}</div>
-        <div style="font-size:12px; color:#52525B;">{tiers['high_yield']['reasoning']}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # 3. Store Assistant Response in Session History
+    st.session_state["messages"].append({"role": "assistant", "content": response})
