@@ -15,84 +15,106 @@ APIF_BASE = "https://v3.football.api-sports.io"
 FD_HEADERS = {"X-Auth-Token": FD_KEY} if FD_KEY else {}
 APIF_HEADERS = {"x-apisports-key": API_FOOTBALL_KEY} if API_FOOTBALL_KEY else {}
 
-# Hardcoded fallback mappings for tricky Premier League & Championship team names
-TEAM_ALIAS_MAP = {
-    "nottingham forest": "Nottingham Forest",
-    "nottingham forest fc": "Nottingham Forest",
-    "leeds united": "Leeds",
-    "leeds united fc": "Leeds",
-    "manchester united": "Manchester United",
-    "manchester united fc": "Manchester United",
-    "manchester city": "Manchester City",
-    "manchester city fc": "Manchester City",
-    "hull city": "Hull City",
-    "hull city afc": "Hull City",
-    "tottenham hotspur": "Tottenham",
-    "tottenham hotspur fc": "Tottenham",
-    "wolverhampton wanderers": "Wolves",
-    "wolverhampton wanderers fc": "Wolves",
-    "brighton & hove albion": "Brighton",
-    "brighton & hove albion fc": "Brighton",
-    "west ham united": "West Ham",
-    "west ham united fc": "West Ham",
-    "newcastle united": "Newcastle",
-    "newcastle united fc": "Newcastle",
-    "sheffield united": "Sheffield Utd",
-    "sheffield wednesday": "Sheffield Wed",
-    "leicester city": "Leicester",
+# Direct lookup map for common API-Football IDs (bypasses API search completely)
+KNOWN_TEAM_IDS = {
+    "arsenal": (42, "Arsenal"),
+    "arsenal fc": (42, "Arsenal"),
+    "coventry": (1070, "Coventry"),
+    "coventry city": (1070, "Coventry"),
+    "coventry city fc": (1070, "Coventry"),
+    "everton": (45, "Everton"),
+    "everton fc": (45, "Everton"),
+    "nottingham forest": (65, "Nottingham Forest"),
+    "nottingham forest fc": (65, "Nottingham Forest"),
+    "leeds": (63, "Leeds"),
+    "leeds united": (63, "Leeds"),
+    "leeds united fc": (63, "Leeds"),
+    "manchester united": (33, "Manchester United"),
+    "manchester united fc": (33, "Manchester United"),
+    "manchester city": (50, "Manchester City"),
+    "manchester city fc": (50, "Manchester City"),
+    "chelsea": (49, "Chelsea"),
+    "chelsea fc": (49, "Chelsea"),
+    "liverpool": (40, "Liverpool"),
+    "liverpool fc": (40, "Liverpool"),
+    "tottenham": (47, "Tottenham"),
+    "tottenham hotspur": (47, "Tottenham"),
+    "tottenham hotspur fc": (47, "Tottenham"),
+    "aston villa": (66, "Aston Villa"),
+    "aston villa fc": (66, "Aston Villa"),
+    "newcastle": (34, "Newcastle"),
+    "newcastle united": (34, "Newcastle"),
+    "west ham": (48, "West Ham"),
+    "west ham united": (48, "West Ham"),
+    "wolves": (39, "Wolves"),
+    "wolverhampton wanderers": (39, "Wolves"),
+    "brighton": (51, "Brighton"),
+    "brighton & hove albion": (51, "Brighton"),
+    "fulham": (36, "Fulham"),
+    "brentford": (55, "Brentford"),
+    "bournemouth": (35, "Bournemouth"),
+    "crystal palace": (52, "Crystal Palace"),
+    "leicester": (46, "Leicester"),
+    "leicester city": (46, "Leicester"),
+    "southampton": (41, "Southampton"),
+    "ipswich": (1079, "Ipswich"),
+    "ipswich town": (1079, "Ipswich"),
+    "sunderland": (746, "Sunderland"),
 }
 
 
 def clean_team_name(team_name: str) -> str:
     """Strips common suffixes and normalizes team names."""
     clean = team_name.strip()
-    lowered = clean.lower()
-
-    if lowered in TEAM_ALIAS_MAP:
-        return TEAM_ALIAS_MAP[lowered]
-
-    for suffix in [" AFC", " FC", " Football Club", " Club", " AFC", " FC."]:
-        if clean.endswith(suffix) or clean.endswith(suffix.lower()):
+    for suffix in [" AFC", " FC", " Football Club", " Club", " FC."]:
+        if clean.lower().endswith(suffix.lower()):
             clean = clean[:-len(suffix)].strip()
-
     return clean
 
 
 def resolve_team_id(team_name: str):
     """
-    Resolves a team name to an API-Football Team ID using multi-pass fallback search logic.
+    Resolves a team name to an API-Football Team ID using a direct lookup table 
+    first, falling back to multi-query API search logic if not found.
     """
-    clean = clean_team_name(team_name)
-
-    # Search queries to attempt sequentially
-    search_queries = [clean]
+    normalized = team_name.strip().lower()
     
-    # Try first word if multi-word name (e.g. "Nottingham" or "Leeds")
+    # 1. Direct match check
+    if normalized in KNOWN_TEAM_IDS:
+        return KNOWN_TEAM_IDS[normalized]
+
+    clean = clean_team_name(team_name)
+    if clean.lower() in KNOWN_TEAM_IDS:
+        return KNOWN_TEAM_IDS[clean.lower()]
+
+    # 2. API-Football Search Fallback
+    search_queries = [clean]
     words = clean.split()
     if len(words) > 1 and words[0].lower() not in ["manchester", "sheffield", "west"]:
         search_queries.append(words[0])
-    
     search_queries.append(team_name.strip())
 
     for query in search_queries:
+        if len(query) < 3:
+            continue
         try:
             res = requests.get(f"{APIF_BASE}/teams?search={query}", headers=APIF_HEADERS, timeout=10)
             if res.status_code == 200 and res.json().get("response"):
                 response_list = res.json()["response"]
                 
-                # 1. Look for exact match
+                # Check for exact name match
                 for item in response_list:
                     t_name = item["team"]["name"]
                     if clean.lower() == t_name.lower():
                         return item["team"]["id"], item["team"]["name"]
 
-                # 2. Look for partial match
+                # Check for partial match
                 for item in response_list:
                     t_name = item["team"]["name"]
                     if clean.lower() in t_name.lower() or t_name.lower() in clean.lower():
                         return item["team"]["id"], item["team"]["name"]
 
-                # 3. Fallback to first result
+                # Default to first returned result
                 return response_list[0]["team"]["id"], response_list[0]["team"]["name"]
         except Exception:
             continue
@@ -236,7 +258,6 @@ def get_head_to_head_last_5(team1_name: str, team2_name: str):
     try:
         res = requests.get(h2h_url, headers=APIF_HEADERS, timeout=10)
         
-        # If no strict head to head exists, return a clear structured response
         if res.status_code != 200 or not res.json().get("response"):
             return {
                 "teams": [t1_official, t2_official],
@@ -312,7 +333,7 @@ TOOLS_SCHEMA = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "team_name": {"type": "string", "description": "Football team name e.g. Nottingham Forest, Leeds United, Hull City, or Manchester United"}
+                    "team_name": {"type": "string", "description": "Football team name e.g. Arsenal, Everton, Coventry City"}
                 },
                 "required": ["team_name"]
             }
