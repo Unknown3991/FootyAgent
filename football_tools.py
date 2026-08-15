@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Secrets check
 FD_KEY = st.secrets.get("FOOTBALL_DATA_KEY") if "FOOTBALL_DATA_KEY" in st.secrets else os.getenv("FOOTBALL_DATA_KEY")
 API_FOOTBALL_KEY = st.secrets.get("API_FOOTBALL_KEY") if "API_FOOTBALL_KEY" in st.secrets else os.getenv("API_FOOTBALL_KEY")
 
@@ -16,30 +15,84 @@ APIF_BASE = "https://v3.football.api-sports.io"
 FD_HEADERS = {"X-Auth-Token": FD_KEY} if FD_KEY else {}
 APIF_HEADERS = {"x-apisports-key": API_FOOTBALL_KEY} if API_FOOTBALL_KEY else {}
 
+# Hardcoded fallback mappings for tricky Premier League & Championship team names
+TEAM_ALIAS_MAP = {
+    "nottingham forest": "Nottingham Forest",
+    "nottingham forest fc": "Nottingham Forest",
+    "leeds united": "Leeds",
+    "leeds united fc": "Leeds",
+    "manchester united": "Manchester United",
+    "manchester united fc": "Manchester United",
+    "manchester city": "Manchester City",
+    "manchester city fc": "Manchester City",
+    "hull city": "Hull City",
+    "hull city afc": "Hull City",
+    "tottenham hotspur": "Tottenham",
+    "tottenham hotspur fc": "Tottenham",
+    "wolverhampton wanderers": "Wolves",
+    "wolverhampton wanderers fc": "Wolves",
+    "brighton & hove albion": "Brighton",
+    "brighton & hove albion fc": "Brighton",
+    "west ham united": "West Ham",
+    "west ham united fc": "West Ham",
+    "newcastle united": "Newcastle",
+    "newcastle united fc": "Newcastle",
+    "sheffield united": "Sheffield Utd",
+    "sheffield wednesday": "Sheffield Wed",
+    "leicester city": "Leicester",
+}
+
+
+def clean_team_name(team_name: str) -> str:
+    """Strips common suffixes and normalizes team names."""
+    clean = team_name.strip()
+    lowered = clean.lower()
+
+    if lowered in TEAM_ALIAS_MAP:
+        return TEAM_ALIAS_MAP[lowered]
+
+    for suffix in [" AFC", " FC", " Football Club", " Club", " AFC", " FC."]:
+        if clean.endswith(suffix) or clean.endswith(suffix.lower()):
+            clean = clean[:-len(suffix)].strip()
+
+    return clean
+
 
 def resolve_team_id(team_name: str):
     """
-    Resolves a team name to an API-Football Team ID using fallback search logic.
+    Resolves a team name to an API-Football Team ID using multi-pass fallback search logic.
     """
-    clean = team_name.strip()
-    for suffix in [" AFC", " FC", " Football Club", " Club"]:
-        if clean.endswith(suffix):
-            clean = clean[:-len(suffix)].strip()
+    clean = clean_team_name(team_name)
 
-    search_queries = [clean, team_name.strip()]
+    # Search queries to attempt sequentially
+    search_queries = [clean]
+    
+    # Try first word if multi-word name (e.g. "Nottingham" or "Leeds")
     words = clean.split()
-    if len(words) > 1:
+    if len(words) > 1 and words[0].lower() not in ["manchester", "sheffield", "west"]:
         search_queries.append(words[0])
+    
+    search_queries.append(team_name.strip())
 
     for query in search_queries:
         try:
             res = requests.get(f"{APIF_BASE}/teams?search={query}", headers=APIF_HEADERS, timeout=10)
             if res.status_code == 200 and res.json().get("response"):
                 response_list = res.json()["response"]
+                
+                # 1. Look for exact match
+                for item in response_list:
+                    t_name = item["team"]["name"]
+                    if clean.lower() == t_name.lower():
+                        return item["team"]["id"], item["team"]["name"]
+
+                # 2. Look for partial match
                 for item in response_list:
                     t_name = item["team"]["name"]
                     if clean.lower() in t_name.lower() or t_name.lower() in clean.lower():
                         return item["team"]["id"], item["team"]["name"]
+
+                # 3. Fallback to first result
                 return response_list[0]["team"]["id"], response_list[0]["team"]["name"]
         except Exception:
             continue
@@ -50,7 +103,7 @@ def resolve_team_id(team_name: str):
 # -----------------------------------------------------------------------------
 # 1. UPCOMING FIXTURES TOOL
 # -----------------------------------------------------------------------------
-def get_upcoming_fixtures(league="PL", limit=5):
+def get_upcoming_fixtures(league="PL", limit=10):
     """Fetches upcoming scheduled matches from Football-Data.org."""
     url = f"{FD_BASE}/competitions/{league}/matches?status=SCHEDULED"
     
@@ -70,8 +123,8 @@ def get_upcoming_fixtures(league="PL", limit=5):
         return [
             {
                 "id": m.get("id"),
-                "home_team": m.get("homeTeam", {}).get("name"),
-                "away_team": m.get("awayTeam", {}).get("name"),
+                "home_team": clean_team_name(m.get("homeTeam", {}).get("name", "")),
+                "away_team": clean_team_name(m.get("awayTeam", {}).get("name", "")),
                 "utc_date": m.get("utcDate")
             }
             for m in upcoming_slice
@@ -182,8 +235,14 @@ def get_head_to_head_last_5(team1_name: str, team2_name: str):
     h2h_url = f"{APIF_BASE}/fixtures/headtohead?h2h={t1_id}-{t2_id}&last=5"
     try:
         res = requests.get(h2h_url, headers=APIF_HEADERS, timeout=10)
+        
+        # If no strict head to head exists, return a clear structured response
         if res.status_code != 200 or not res.json().get("response"):
-            return {"error": f"No H2H history found between {t1_official} and {t2_official}."}
+            return {
+                "teams": [t1_official, t2_official],
+                "h2h_summary": "No recent head-to-head meetings recorded.",
+                "last_5_meetings": []
+            }
 
         fixtures = res.json()["response"]
         history = []
@@ -253,7 +312,7 @@ TOOLS_SCHEMA = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "team_name": {"type": "string", "description": "Football team name e.g. Hull City or Manchester United"}
+                    "team_name": {"type": "string", "description": "Football team name e.g. Nottingham Forest, Leeds United, Hull City, or Manchester United"}
                 },
                 "required": ["team_name"]
             }
