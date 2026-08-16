@@ -137,7 +137,7 @@ css_centered_input = """
 /* App Canvas */
 .stApp {
     background-color: #FFFFFF !important;
-    color: #09090B !important;
+    color: #FFFFFF !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
