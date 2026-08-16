@@ -117,7 +117,7 @@ def render_match_cards(data):
     return html
 
 
-# 1. PAGE CONFIGURATION
+# PAGE CONFIG
 st.set_page_config(
     page_title="AJL Analytics",
     page_icon="⚽",
@@ -125,10 +125,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. CUSTOM CSS STYLING
-CUSTOM_THEME_CSS = """
+# CUSTOM STYLING
+st.markdown("""
 <style>
-/* App Canvas - Pure White Background */
+/* App Canvas */
 .stApp {
     background-color: #FFFFFF !important;
     color: #09090B !important;
@@ -156,7 +156,7 @@ header, #MainMenu, footer {visibility: hidden;}
     border-color: #D4D4D8 !important;
 }
 
-/* Minimal Top Nav */
+/* Nav Bar */
 .ajl-top-nav {
     display: flex;
     justify-content: space-between;
@@ -201,7 +201,7 @@ header, #MainMenu, footer {visibility: hidden;}
 }
 .ajl-pill-active { background-color: #09090B; color: #FFFFFF; border-color: #09090B; }
 
-/* Cards Styling */
+/* Cards Container */
 .clean-card {
     background-color: #FFFFFF;
     border: 1px solid #E4E4E7;
@@ -238,7 +238,7 @@ header, #MainMenu, footer {visibility: hidden;}
 .tier-med { border-left-color: #F59E0B; background: #FFFBEB; }
 .tier-yield { border-left-color: #8B5CF6; background: #F5F3FF; }
 
-/* 3. CHAT INPUT STYLING - WHITE BG & THICK BLACK BORDER */
+/* CHAT INPUT STYLING - WHITE BG & THICK BLACK BORDER */
 [data-testid="stChatInput"] {
     background-color: #FFFFFF !important;
     border: 2px solid #09090B !important;
@@ -281,11 +281,11 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# SESSION STATE HISTORY
+# SESSION STATE
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-# CENTERED INITIAL HERO VIEW (when empty)
+# CENTERED INITIAL HERO VIEW
 if not st.session_state["messages"]:
     st.markdown("""
     <div style="max-width: 680px; margin: 10vh auto 20px auto; text-align: center;">
@@ -313,10 +313,8 @@ if user_query:
 
     with st.chat_message("assistant"):
         with st.spinner("Analyzing match statistics, xG, corners & player props..."):
-            # Call agent executor
             response_payload = run_ajl_agent(user_query)
             
-            # Render Cards if Dict, else plain text
             if isinstance(response_payload, dict):
                 st.markdown(render_match_cards(response_payload), unsafe_allow_html=True)
             else:
