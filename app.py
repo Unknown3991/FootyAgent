@@ -144,7 +144,7 @@ def render_match_cards(data):
 
 
 # -----------------------------------------------------------------------------
-# CUSTOM STYLING (SAAS MINIMALIST THEME)
+# CUSTOM STYLING
 # -----------------------------------------------------------------------------
 st.markdown(
     """
@@ -216,19 +216,7 @@ header, #MainMenu, footer { visibility: hidden; }
     cursor: pointer;
 }
 
-.btn-primary-nav {
-    background: #4F46E5;
-    color: #FFFFFF;
-    border: none;
-    padding: 8px 18px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
-}
-
-/* Main Hero Elements */
+/* Hero Elements */
 .hero-title {
     font-size: 40px;
     font-weight: 800;
@@ -247,32 +235,34 @@ header, #MainMenu, footer { visibility: hidden; }
     font-weight: 400;
 }
 
-/* Form Container Styling */
+/* Input Form Container - Set to #4F46E5 */
 div[data-testid="stForm"] {
-    background: #FFFFFF !important;
-    border: 1px solid #E2E8F0 !important;
+    background: #4F46E5 !important;
+    border: 1px solid #4338CA !important;
     border-radius: 20px !important;
-    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05) !important;
+    box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.25) !important;
     padding: 18px 20px 14px 20px !important;
     transition: all 0.2s ease-in-out;
 }
 
 div[data-testid="stForm"]:focus-within {
-    border-color: #6366F1 !important;
-    box-shadow: 0 12px 36px -4px rgba(99, 102, 241, 0.14) !important;
+    border-color: #312E81 !important;
+    box-shadow: 0 12px 36px -4px rgba(79, 70, 229, 0.4) !important;
 }
 
+/* White Text & Light Silver Placeholder for Input Box */
 .stTextArea textarea {
     border: none !important;
     box-shadow: none !important;
     font-size: 16px !important;
     color: #FFFFFF !important;
+    background: transparent !important;
     padding: 0px !important;
     resize: vertical !important;
 }
 
 .stTextArea textarea::placeholder {
-    color: #FFFFFF !important;
+    color: #E0E7FF !important;
     font-weight: 400;
 }
 
@@ -280,7 +270,7 @@ div[data-testid="stForm"]:focus-within {
     color: transparent !important;
 }
 
-/* Suggestion Chips Section */
+/* Suggestion Chips - Fill set to #4F46E5 with White Text */
 .chips-label {
     font-size: 12px;
     font-weight: 600;
@@ -294,9 +284,9 @@ div[data-testid="stForm"]:focus-within {
 
 div[data-testid="column"] button {
     border-radius: 20px !important;
-    border: 1px solid #E2E8F0 !important;
-    background-color: #F8FAFC !important;
-    color: #475569 !important;
+    border: 1px solid #4338CA !important;
+    background-color: #4F46E5 !important;
+    color: #FFFFFF !important;
     font-size: 13.5px !important;
     font-weight: 500 !important;
     padding: 6px 14px !important;
@@ -305,9 +295,9 @@ div[data-testid="column"] button {
 }
 
 div[data-testid="column"] button:hover {
-    background-color: #EEF2FF !important;
-    color: #4F46E5 !important;
-    border-color: #C7D2FE !important;
+    background-color: #4338CA !important;
+    border-color: #312E81 !important;
+    color: #FFFFFF !important;
 }
 
 /* Result Cards & Badges */
@@ -374,7 +364,6 @@ st.markdown(
     </div>
     <div class="nav-actions">
         <button class="btn-secondary-nav">Sign In</button>
-        <button class="btn-primary-nav">Get Started</button>
     </div>
 </div>
 """,
