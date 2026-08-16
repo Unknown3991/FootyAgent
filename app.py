@@ -250,24 +250,34 @@ div[data-testid="stForm"]:focus-within {
     box-shadow: 0 12px 36px -4px rgba(79, 70, 229, 0.4) !important;
 }
 
-/* Override inner Streamlit textarea wrapper and inner textarea element */
+/* Force inner input box and base-input container to #4F46E5 with white text */
 div[data-testid="stForm"] div[data-baseweb="textarea"],
-div[data-testid="stForm"] div[data-baseweb="base-input"] {
-    background-color: transparent !important;
-    background: transparent !important;
+div[data-testid="stForm"] div[data-baseweb="base-input"],
+div[data-testid="stForm"] div[class*="stTextArea"],
+div[data-baseweb="textarea"] {
+    background-color: #4F46E5 !important;
+    background: #4F46E5 !important;
     border: none !important;
 }
 
 .stTextArea textarea,
-div[data-testid="stForm"] textarea {
-    background-color: transparent !important;
-    background: transparent !important;
+div[data-testid="stForm"] textarea,
+div[data-baseweb="textarea"] textarea {
+    background-color: #4F46E5 !important;
+    background: #4F46E5 !important;
     border: none !important;
     box-shadow: none !important;
     font-size: 16px !important;
     color: #FFFFFF !important;
-    padding: 0px !important;
-    resize: vertical !important;
+    padding: 4px 0px !important;
+    min-height: 42px !important;
+    height: auto !important;
+    resize: none !important;
+}
+
+/* Form Helper text / keyboard shortcut indicator */
+div[data-testid="stForm"] [data-testid="InputInstructions"] {
+    color: #E0E7FF !important;
 }
 
 .stTextArea textarea::placeholder,
@@ -396,7 +406,7 @@ with st.form(key="agent_form", clear_on_submit=False):
         label="Prompt",
         value=st.session_state["input_buffer"],
         placeholder="what Match you thinking to Analyse?",
-        height=100,
+        height=42,
         label_visibility="collapsed",
     )
 
