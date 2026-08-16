@@ -251,14 +251,14 @@ div[data-testid="stForm"]:focus-within {
     box-shadow: 0 12px 36px -4px rgba(79, 70, 229, 0.15) !important;
 }
 
-/* Inner Textarea Base-Input Box - Remains Purple (#4F46E5) */
+/* Inner Input Text Box - White background with thick purple border (#4F46E5) */
 div[data-testid="stForm"] div[data-baseweb="textarea"],
 div[data-testid="stForm"] div[data-baseweb="base-input"],
 div[data-testid="stForm"] div[class*="stTextArea"],
 div[data-baseweb="textarea"] {
-    background-color: #4F46E5 !important;
-    background: #4F46E5 !important;
-    border: none !important;
+    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
+    border: 2px solid #4F46E5 !important;
     border-radius: 12px !important;
     padding: 4px 12px !important;
 }
@@ -266,26 +266,21 @@ div[data-baseweb="textarea"] {
 .stTextArea textarea,
 div[data-testid="stForm"] textarea,
 div[data-baseweb="textarea"] textarea {
-    background-color: #4F46E5 !important;
-    background: #4F46E5 !important;
+    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
     border: none !important;
     box-shadow: none !important;
     font-size: 16px !important;
-    color: #FFFFFF !important;
+    color: #0F172A !important;
     min-height: 42px !important;
     height: auto !important;
     resize: none !important;
 }
 
-/* Form Helper text / keyboard shortcut indicator */
-div[data-testid="stForm"] [data-testid="InputInstructions"] {
-    color: #E0E7FF !important;
-}
-
 .stTextArea textarea::placeholder,
 div[data-testid="stForm"] textarea::placeholder {
-    color: #E0E7FF !important;
-    opacity: 0.9 !important;
+    color: #94A3B8 !important;
+    opacity: 1 !important;
     font-weight: 400;
 }
 
