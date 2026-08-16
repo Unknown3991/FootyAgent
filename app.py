@@ -235,22 +235,23 @@ header, #MainMenu, footer { visibility: hidden; }
     font-weight: 400;
 }
 
-/* Input Form Container - Set to #4F46E5 */
+/* Input Form Container - Outer background set to #FFFFFF */
 div[data-testid="stForm"] {
-    background-color: #4F46E5 !important;
-    border: 1px solid #4338CA !important;
+    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
     border-radius: 20px !important;
-    box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.25) !important;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05) !important;
     padding: 18px 20px 14px 20px !important;
     transition: all 0.2s ease-in-out;
 }
 
 div[data-testid="stForm"]:focus-within {
-    border-color: #312E81 !important;
-    box-shadow: 0 12px 36px -4px rgba(79, 70, 229, 0.4) !important;
+    border-color: #4F46E5 !important;
+    box-shadow: 0 12px 36px -4px rgba(79, 70, 229, 0.15) !important;
 }
 
-/* Force inner input box and base-input container to #4F46E5 with white text */
+/* Inner Textarea Base-Input Box - Remains Purple (#4F46E5) */
 div[data-testid="stForm"] div[data-baseweb="textarea"],
 div[data-testid="stForm"] div[data-baseweb="base-input"],
 div[data-testid="stForm"] div[class*="stTextArea"],
@@ -258,6 +259,8 @@ div[data-baseweb="textarea"] {
     background-color: #4F46E5 !important;
     background: #4F46E5 !important;
     border: none !important;
+    border-radius: 12px !important;
+    padding: 4px 12px !important;
 }
 
 .stTextArea textarea,
@@ -269,7 +272,6 @@ div[data-baseweb="textarea"] textarea {
     box-shadow: none !important;
     font-size: 16px !important;
     color: #FFFFFF !important;
-    padding: 4px 0px !important;
     min-height: 42px !important;
     height: auto !important;
     resize: none !important;
