@@ -158,8 +158,8 @@ header, #MainMenu, footer {visibility: hidden;}
 }
 
 [data-testid="stChatMessage"][data-test-role="user"] {
-    background-color: #F4F4F5 !important;
-    border-color: #D4D4D8 !important;
+    background-color: #FFFFFF !important;
+    border-color: #FFFFFF !important;
 }
 
 /* Nav Bar */
