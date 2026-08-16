@@ -2,8 +2,12 @@ import os
 import requests
 import streamlit as st
 
-# Retrieve API Key from Streamlit Secrets
-STATS_API_KEY = st.secrets.get("thestatsapi", {}).get("api_key", "")
+# Safely retrieve API Key without crashing if secrets.toml is missing
+try:
+    STATS_API_KEY = st.secrets["thestatsapi"]["api_key"]
+except (FileNotFoundError, KeyError, AttributeError):
+    STATS_API_KEY = os.getenv("THESTATSAPI_KEY", "")
+
 BASE_URL = "https://api.thestatsapi.com/v1"
 
 
