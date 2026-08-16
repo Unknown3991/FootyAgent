@@ -125,8 +125,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# SESSION STATE
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
+
+is_empty = len(st.session_state["messages"]) == 0
+
 # CUSTOM STYLING
-st.markdown("""
+css_centered_input = """
 <style>
 /* App Canvas */
 .stApp {
@@ -257,13 +263,36 @@ header, #MainMenu, footer {visibility: hidden;}
     color: #71717A !important;
     font-size: 15px !important;
     font-weight: 400 !important;
+    transition: opacity 0.2s ease;
+}
+
+/* HIDE PLACEHOLDER ON CLICK / FOCUS */
+[data-testid="stChatInput"] textarea:focus::placeholder {
+    opacity: 0 !important;
+    color: transparent !important;
 }
 
 .stBottom {
     background-color: #FFFFFF !important;
 }
-</style>
-""", unsafe_allow_html=True)
+"""
+
+if is_empty:
+    css_centered_input += """
+    /* Center the chat input vertically on initial load */
+    .stBottom {
+        position: fixed !important;
+        top: 60% !important;
+        bottom: auto !important;
+        transform: translateY(-50%) !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        max-width: 750px !important;
+        width: 90% !important;
+    }
+    """
+
+st.markdown(css_centered_input, unsafe_allow_html=True)
 
 # TOP NAV
 st.markdown("""
@@ -281,14 +310,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# SESSION STATE
-if "messages" not in st.session_state:
-    st.session_state["messages"] = []
-
 # CENTERED INITIAL HERO VIEW
-if not st.session_state["messages"]:
+if is_empty:
     st.markdown("""
-    <div style="max-width: 680px; margin: 10vh auto 20px auto; text-align: center;">
+    <div style="max-width: 680px; margin: 12vh auto 0 auto; text-align: center;">
         <div class="ajl-logo-circle" style="width: 64px; height: 64px; font-size: 24px; margin: 0 auto 20px auto;">AJL</div>
         <h1 style="font-weight: 800; font-size: 28px; color: #09090B; margin: 0 0 12px 0;">How can AJL help with your match prediction today?</h1>
         <p style="color: #71717A; font-size: 15px; margin: 0;">Analyze team form, player shot props, xG, and generated 3-tier bet builders.</p>
