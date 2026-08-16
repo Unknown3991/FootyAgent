@@ -55,6 +55,7 @@ def render_match_cards(data):
     </div>
     """
 
+    # Home & Away Stats Grid with expanded metrics (xG, Corners, Cards, Throw-ins, Free Kicks)
     html += f"""
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
         <div class="result-card" style="margin-bottom:0;">
@@ -66,6 +67,9 @@ def render_match_cards(data):
                 <div><strong>Avg Goals:</strong> {home.get('goals_scored_avg', 0)}</div>
                 <div><strong>Avg xG:</strong> {home.get('avg_xg', 0)}</div>
                 <div><strong>Avg Corners:</strong> {home.get('avg_corners_overall', 0)}</div>
+                <div><strong>Avg Yellow Cards:</strong> {home.get('avg_cards_yellow', 0)}</div>
+                <div><strong>Avg Throw-ins:</strong> {home.get('avg_throw_ins', 0)}</div>
+                <div><strong>Avg Free Kicks:</strong> {home.get('avg_free_kicks', 0)}</div>
                 <div><strong>Clean Sheets:</strong> {home.get('clean_sheets', 0)}</div>
             </div>
         </div>
@@ -78,19 +82,25 @@ def render_match_cards(data):
                 <div><strong>Avg Goals:</strong> {away.get('goals_scored_avg', 0)}</div>
                 <div><strong>Avg xG:</strong> {away.get('avg_xg', 0)}</div>
                 <div><strong>Avg Corners:</strong> {away.get('avg_corners_overall', 0)}</div>
+                <div><strong>Avg Yellow Cards:</strong> {away.get('avg_cards_yellow', 0)}</div>
+                <div><strong>Avg Throw-ins:</strong> {away.get('avg_throw_ins', 0)}</div>
+                <div><strong>Avg Free Kicks:</strong> {away.get('avg_free_kicks', 0)}</div>
                 <div><strong>Clean Sheets:</strong> {away.get('clean_sheets', 0)}</div>
             </div>
         </div>
     </div>
     """
 
+    # Expanded Player Props Cards
     props_html = "".join([f"""
     <div class="result-card" style="padding: 12px; margin-bottom: 10px;">
-        <h4 style="margin:0; font-size:14px; color:#0F172A;">{p.get('name')} ({p.get('team')})</h4>
+        <h4 style="margin:0; font-size:14px; color:#0F172A;">{p.get('name')} ({p.get('team')}) - <span style="color:#64748B; font-weight:500;">{p.get('position', 'FW')}</span></h4>
         <p style="margin: 4px 0 0 0; font-size: 12px; color: #475569;">
-            <strong>{p.get('goals_last_5')}</strong> goals in last 5 • 
-            <strong>{p.get('shots_on_target_last_5')}</strong> shots on target • 
-            Avg <strong>{p.get('avg_shots_per_game')}</strong> shots/game
+            <strong>{p.get('goals_last_5', 0)}</strong> goals in last 5 • 
+            <strong>{p.get('shots_on_target_last_5', 0)}</strong> shots on target • 
+            Avg <strong>{p.get('avg_shots_per_game', 0)}</strong> shots/gm • 
+            <strong>{p.get('cards_last_5', 0)}</strong> cards • 
+            <strong>{p.get('fouls_drawn_avg', 0)}</strong> fouls drawn/gm
         </p>
     </div>
     """ for p in player_props])
@@ -131,7 +141,7 @@ def render_match_cards(data):
     html += f"""
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div>
-            <h4 style="margin: 0 0 10px 0; font-size: 15px; color:#0F172A;">🎯 Key Player Shooting Metrics</h4>
+            <h4 style="margin: 0 0 10px 0; font-size: 15px; color:#0F172A;">🎯 Key Player Metrics & Props</h4>
             {props_html}
         </div>
         <div>
