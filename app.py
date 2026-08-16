@@ -1,7 +1,8 @@
 # app.py
 import streamlit as st
+from agent import run_ajl_agent
 
-# Function to render rich HTML cards inside Streamlit chat
+# Function to render rich HTML match cards inside Streamlit chat
 def render_match_cards(data):
     fixture = data.get("fixture", {})
     home = data.get("home_stats", {})
@@ -9,13 +10,12 @@ def render_match_cards(data):
     player_props = data.get("player_props", [])
     tiers = data.get("bet_builder_tiers", {})
 
-    # Form badges helper
     def build_badges(outcomes):
         badge_map = {"WIN": "badge-w", "DRAW": "badge-d", "LOSS": "badge-l"}
         letters = {"WIN": "W", "DRAW": "D", "LOSS": "L"}
         return "".join([f'<span class="badge {badge_map.get(o, "badge-w")}">{letters.get(o, "W")}</span>' for o in outcomes])
 
-    # 1. Header Card
+    # Header Card
     html = f"""
     <div class="clean-card">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -27,7 +27,7 @@ def render_match_cards(data):
     </div>
     """
 
-    # 2. Team Form & Metrics Cards
+    # Team Form Cards
     html += f"""
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
         <div class="clean-card" style="margin-bottom:0;">
@@ -57,7 +57,7 @@ def render_match_cards(data):
     </div>
     """
 
-    # 3. Player Shooting Props & 3-Tier Bets
+    # Props & Bet Tiers
     props_html = "".join([f"""
     <div class="clean-card" style="padding: 12px; margin-bottom: 10px;">
         <h4 style="margin:0; font-size:14px; color:#09090B;">{p.get('name')} ({p.get('team')})</h4>
@@ -117,9 +117,7 @@ def render_match_cards(data):
     return html
 
 
-# -----------------------------------------------------------------------------
-# 1. PAGE CONFIGURATION & MINIMALIST LIGHT STYLING
-# -----------------------------------------------------------------------------
+# 1. PAGE CONFIGURATION
 st.set_page_config(
     page_title="AJL Analytics",
     page_icon="⚽",
@@ -127,32 +125,32 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# 2. CUSTOM CSS STYLING
 CUSTOM_THEME_CSS = """
 <style>
-/* App Canvas */
+/* App Canvas - Pure White Background */
 .stApp {
-    background-color: #FAFAFA !important;
-    color: #18181B !important;
+    background-color: #FFFFFF !important;
+    color: #09090B !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 header, #MainMenu, footer {visibility: hidden;}
 
-/* Fix Text Contrast Inside Chat Messages */
+/* Chat Messages */
 [data-testid="stChatMessage"] {
     background-color: #FFFFFF !important;
     border: 1px solid #E4E4E7 !important;
     border-radius: 16px !important;
     padding: 16px !important;
     margin-bottom: 16px !important;
-    color: #18181B !important;
+    color: #09090B !important;
 }
 
 [data-testid="stChatMessage"] p, [data-testid="stChatMessage"] div {
-    color: #18181B !important;
+    color: #09090B !important;
 }
 
-/* User Bubble Custom Accent */
 [data-testid="stChatMessage"][data-test-role="user"] {
     background-color: #F4F4F5 !important;
     border-color: #D4D4D8 !important;
@@ -203,17 +201,16 @@ header, #MainMenu, footer {visibility: hidden;}
 }
 .ajl-pill-active { background-color: #09090B; color: #FFFFFF; border-color: #09090B; }
 
-/* Clean Rounded Card Container */
+/* Cards Styling */
 .clean-card {
     background-color: #FFFFFF;
     border: 1px solid #E4E4E7;
     border-radius: 16px;
     padding: 18px;
     margin-bottom: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
 }
 
-/* Form Badges */
 .badge {
     display: inline-block;
     width: 22px;
@@ -230,7 +227,6 @@ header, #MainMenu, footer {visibility: hidden;}
 .badge-d { background-color: #F59E0B; }
 .badge-l { background-color: #EF4444; }
 
-/* Tiered Bet Cards */
 .tier-card {
     border-radius: 12px;
     padding: 12px 14px;
@@ -242,30 +238,34 @@ header, #MainMenu, footer {visibility: hidden;}
 .tier-med { border-left-color: #F59E0B; background: #FFFBEB; }
 .tier-yield { border-left-color: #8B5CF6; background: #F5F3FF; }
 
-/* PASTEL BLUE CHAT INPUT STYLING */
+/* 3. CHAT INPUT STYLING - WHITE BG & THICK BLACK BORDER */
 [data-testid="stChatInput"] {
-    background-color: #E0F2FE !important; /* Pastel Blue Fill */
-    border: 1px solid #BAE6FD !important;
-    border-radius: 20px !important;
-    padding: 4px !important;
-    box-shadow: 0 2px 10px rgba(0, 149, 255, 0.08) !important;
+    background-color: #FFFFFF !important;
+    border: 2px solid #09090B !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+    padding: 4px 8px !important;
 }
 
 [data-testid="stChatInput"] textarea {
-    color: #0C4A6E !important; /* Deep Navy Blue Text */
-    font-weight: 500 !important;
+    color: #09090B !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
 }
 
 [data-testid="stChatInput"] textarea::placeholder {
-    color: #0284C7 !important; /* Medium Pastel Blue Placeholder */
+    color: #71717A !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+}
+
+.stBottom {
+    background-color: #FFFFFF !important;
 }
 </style>
-"""
-st.markdown(CUSTOM_THEME_CSS, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# 2. TOP NAV
-# -----------------------------------------------------------------------------
+# TOP NAV
 st.markdown("""
 <div class="ajl-top-nav">
     <div class="ajl-brand">
@@ -281,21 +281,21 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# -----------------------------------------------------------------------------
-# 3. CHAT HISTORY & HERO PROMPT
-# -----------------------------------------------------------------------------
+# SESSION STATE HISTORY
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
+# CENTERED INITIAL HERO VIEW (when empty)
 if not st.session_state["messages"]:
     st.markdown("""
-    <div style="text-align: center; margin-top: 40px; margin-bottom: 30px;">
-        <div class="ajl-logo-circle" style="width: 52px; height: 52px; font-size: 20px; margin: 0 auto 16px auto;">AJL</div>
-        <h2 style="font-weight: 700; font-size: 24px; color: #09090B; margin: 0;">How can AJL help with your match prediction today?</h2>
-        <p style="color: #71717A; font-size: 14px; margin-top: 8px;">Ask about any fixture e.g. <em>"Analyze Arsenal vs Coventry"</em> or <em>"West Ham vs Everton"</em></p>
+    <div style="max-width: 680px; margin: 10vh auto 20px auto; text-align: center;">
+        <div class="ajl-logo-circle" style="width: 64px; height: 64px; font-size: 24px; margin: 0 auto 20px auto;">AJL</div>
+        <h1 style="font-weight: 800; font-size: 28px; color: #09090B; margin: 0 0 12px 0;">How can AJL help with your match prediction today?</h1>
+        <p style="color: #71717A; font-size: 15px; margin: 0;">Analyze team form, player shot props, xG, and generated 3-tier bet builders.</p>
     </div>
     """, unsafe_allow_html=True)
 
+# DISPLAY CHAT HISTORY
 for msg in st.session_state["messages"]:
     with st.chat_message(msg["role"]):
         if isinstance(msg["content"], dict):
@@ -303,9 +303,7 @@ for msg in st.session_state["messages"]:
         else:
             st.markdown(msg["content"])
 
-# -----------------------------------------------------------------------------
-# 4. PASTEL BLUE AGENT CHAT INPUT
-# -----------------------------------------------------------------------------
+# CHAT INPUT
 user_query = st.chat_input("Ask AJL a question or enter fixture e.g. 'Analyze Arsenal vs Coventry'...")
 
 if user_query:
@@ -315,12 +313,14 @@ if user_query:
 
     with st.chat_message("assistant"):
         with st.spinner("Analyzing match statistics, xG, corners & player props..."):
-            from football_tools import get_match_full_analytics
+            # Call agent executor
+            response_payload = run_ajl_agent(user_query)
             
-            # Fetch structured card payload
-            match_data = get_match_full_analytics("Arsenal", "Coventry")["data"]
-            
-            # Render Cards HTML
-            st.markdown(render_match_cards(match_data), unsafe_allow_html=True)
+            # Render Cards if Dict, else plain text
+            if isinstance(response_payload, dict):
+                st.markdown(render_match_cards(response_payload), unsafe_allow_html=True)
+            else:
+                st.markdown(response_payload)
 
-            st.session_state["messages"].append({"role": "assistant", "content": match_data})
+            st.session_state["messages"].append({"role": "assistant", "content": response_payload})
+            st.rerun()
