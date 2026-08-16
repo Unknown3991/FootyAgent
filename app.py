@@ -315,7 +315,7 @@ if is_empty:
     st.markdown("""
     <div style="max-width: 680px; margin: 12vh auto 0 auto; text-align: center;">
         <div class="ajl-logo-circle" style="width: 64px; height: 64px; font-size: 24px; margin: 0 auto 20px auto;">AJL</div>
-        <h1 style="font-weight: 800; font-size: 28px; color: #09090B; margin: 0 0 12px 0;">How can AJL help with your match prediction today?</h1>
+        <h1 style="font-weight: 800; font-size: 28px; color: #ffffff; margin: 0 0 12px 0;">How can AJL help with your match prediction today?</h1>
         <p style="color: #71717A; font-size: 15px; margin: 0;">Analyze team form, player shot props, xG, and generated 3-tier bet builders.</p>
     </div>
     """, unsafe_allow_html=True)
