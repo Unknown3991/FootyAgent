@@ -249,7 +249,6 @@ header, #MainMenu, footer {visibility: hidden;}
     background-color: #FFFFFF !important;
     border: none !important;
     border-radius: none !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
     padding: 4px 8px !important;
 }
 
