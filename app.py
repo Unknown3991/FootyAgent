@@ -237,7 +237,7 @@ header, #MainMenu, footer { visibility: hidden; }
 
 /* Input Form Container - Set to #4F46E5 */
 div[data-testid="stForm"] {
-    background: #4F46E5 !important;
+    background-color: #4F46E5 !important;
     border: 1px solid #4338CA !important;
     border-radius: 20px !important;
     box-shadow: 0 10px 30px -5px rgba(79, 70, 229, 0.25) !important;
@@ -250,43 +250,42 @@ div[data-testid="stForm"]:focus-within {
     box-shadow: 0 12px 36px -4px rgba(79, 70, 229, 0.4) !important;
 }
 
-/* White Text & Light Silver Placeholder for Input Box */
-.stTextArea textarea {
+/* Override inner Streamlit textarea wrapper and inner textarea element */
+div[data-testid="stForm"] div[data-baseweb="textarea"],
+div[data-testid="stForm"] div[data-baseweb="base-input"] {
+    background-color: transparent !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+.stTextArea textarea,
+div[data-testid="stForm"] textarea {
+    background-color: transparent !important;
+    background: transparent !important;
     border: none !important;
     box-shadow: none !important;
     font-size: 16px !important;
     color: #FFFFFF !important;
-    background: transparent !important;
     padding: 0px !important;
     resize: vertical !important;
 }
 
-.stTextArea textarea::placeholder {
+.stTextArea textarea::placeholder,
+div[data-testid="stForm"] textarea::placeholder {
     color: #E0E7FF !important;
+    opacity: 0.9 !important;
     font-weight: 400;
 }
 
-.stTextArea textarea:focus::placeholder {
-    color: transparent !important;
-}
-
-/* Suggestion Chips - Fill set to #4F46E5 with White Text */
-.chips-label {
-    font-size: 12px;
-    font-weight: 600;
-    color: #94A3B8;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    margin-top: 28px;
-    margin-bottom: 12px;
-    text-align: center;
-}
-
-div[data-testid="column"] button {
-    border-radius: 20px !important;
-    border: 1px solid #4338CA !important;
+/* Suggestion Chips - Comprehensive targeting for Streamlit buttons */
+div[data-testid="stButton"] > button,
+div[data-testid="stForm"] ~ div button,
+.stButton > button {
     background-color: #4F46E5 !important;
+    background: #4F46E5 !important;
     color: #FFFFFF !important;
+    border: 1px solid #4338CA !important;
+    border-radius: 20px !important;
     font-size: 13.5px !important;
     font-weight: 500 !important;
     padding: 6px 14px !important;
@@ -294,9 +293,16 @@ div[data-testid="column"] button {
     width: 100% !important;
 }
 
-div[data-testid="column"] button:hover {
+div[data-testid="stButton"] > button:hover,
+.stButton > button:hover {
     background-color: #4338CA !important;
+    background: #4338CA !important;
     border-color: #312E81 !important;
+    color: #FFFFFF !important;
+}
+
+div[data-testid="stButton"] > button p,
+.stButton > button p {
     color: #FFFFFF !important;
 }
 
