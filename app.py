@@ -254,15 +254,15 @@ header, #MainMenu, footer {visibility: hidden;}
 }
 
 [data-testid="stChatInput"] textarea {
-    color: #09090B !important;
+    color: #ffffff !important;
     font-size: 16px !important;
     font-weight: 600 !important;
 }
 
 [data-testid="stChatInput"] textarea::placeholder {
-    color: #71717A !important;
-    font-size: 15px !important;
-    font-weight: 400 !important;
+    color: #ffffff !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
     transition: opacity 0.2s ease;
 }
 
