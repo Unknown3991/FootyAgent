@@ -267,7 +267,6 @@ div[data-testid="stForm"]:focus-within {
     box-shadow: none !important;
     font-size: 16px !important;
     color: #FFFFFF !important;
-    background: transparent !important;
     padding: 0px !important;
     resize: vertical !important;
 }
