@@ -273,7 +273,7 @@ div[data-testid="stForm"]:focus-within {
 }
 
 .stTextArea textarea::placeholder {
-    color: #94A3B8 !important;
+    color: #FFFFFF !important;
     font-weight: 400;
 }
 
