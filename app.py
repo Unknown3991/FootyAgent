@@ -146,15 +146,15 @@ header, #MainMenu, footer {visibility: hidden;}
 /* Chat Messages */
 [data-testid="stChatMessage"] {
     background-color: #FFFFFF !important;
-    border: 1px solid #E4E4E7 !important;
+    border: 1px solid #FFFFFF !important;
     border-radius: 16px !important;
     padding: 16px !important;
     margin-bottom: 16px !important;
-    color: #09090B !important;
+    color: #FFFFFF !important;
 }
 
 [data-testid="stChatMessage"] p, [data-testid="stChatMessage"] div {
-    color: #09090B !important;
+    color: #FFFFFF !important;
 }
 
 [data-testid="stChatMessage"][data-test-role="user"] {
