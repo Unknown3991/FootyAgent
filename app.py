@@ -197,15 +197,15 @@ header, #MainMenu, footer {visibility: hidden;}
 
 .ajl-nav-pills { display: flex; gap: 8px; }
 .ajl-pill {
-    background-color: #F4F4F5;
-    color: #52525B;
+    background-color: #FFFFFF;
+    color: #FFFFFF;
     padding: 6px 14px;
     border-radius: 9999px;
     font-size: 13px;
     font-weight: 500;
     border: 1px solid #E4E4E7;
 }
-.ajl-pill-active { background-color: #09090B; color: #FFFFFF; border-color: #09090B; }
+.ajl-pill-active { background-color: #FFFFFF; color: #FFFFFF; border-color: #09090B; }
 
 /* Cards Container */
 .clean-card {
