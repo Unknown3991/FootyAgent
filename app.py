@@ -1,4 +1,3 @@
-# app.py
 import time
 import streamlit as st
 from agent import run_ajl_agent
@@ -94,7 +93,7 @@ def render_match_cards(data):
     # Expanded Player Props Cards
     props_html = "".join([f"""
     <div class="result-card" style="padding: 12px; margin-bottom: 10px;">
-        <h4 style="margin:0; font-size:14px; color:#0F172A;">{p.get('name')} ({p.get('team')}) - <span style="color:#64748B; font-weight:500;">{p.get('position', 'FW')}</span></h4>
+        <h4 style="margin:0; font-size:14px; color:#0F172A;">{p.get('name')} - <span style="color:#64748B; font-weight:500;">{p.get('position', 'FW')}</span></h4>
         <p style="margin: 4px 0 0 0; font-size: 12px; color: #475569;">
             <strong>{p.get('goals_last_5', 0)}</strong> goals in last 5 • 
             <strong>{p.get('shots_on_target_last_5', 0)}</strong> shots on target • 
@@ -245,7 +244,7 @@ header, #MainMenu, footer { visibility: hidden; }
     font-weight: 400;
 }
 
-/* Input Form Container - Outer background set to #FFFFFF */
+/* Input Form Container */
 div[data-testid="stForm"] {
     background-color: #FFFFFF !important;
     background: #FFFFFF !important;
@@ -287,6 +286,11 @@ div[data-baseweb="textarea"] textarea {
     resize: none !important;
 }
 
+/* Form Helper text / keyboard shortcut indicator */
+div[data-testid="stForm"] [data-testid="InputInstructions"] {
+    color: #64748B !important;
+}
+
 .stTextArea textarea::placeholder,
 div[data-testid="stForm"] textarea::placeholder {
     color: #94A3B8 !important;
@@ -294,7 +298,7 @@ div[data-testid="stForm"] textarea::placeholder {
     font-weight: 400;
 }
 
-/* Suggestion Chips - Comprehensive targeting for Streamlit buttons */
+/* Suggestion Chips */
 div[data-testid="stButton"] > button,
 div[data-testid="stForm"] ~ div button,
 .stButton > button {
@@ -426,28 +430,26 @@ with st.form(key="agent_form", clear_on_submit=False):
 # -----------------------------------------------------------------------------
 # SUGGESTED PROMPTS
 # -----------------------------------------------------------------------------
-st.markdown('<div class="chips-label">Try asking</div>', unsafe_allow_html=True)
-
 chip_col1, chip_col2, chip_col3, chip_col4 = st.columns(4)
 
 with chip_col1:
     if st.button("Analyse this data", key="chip1"):
-        set_prompt("Analyse Arsenal vs Coventry match statistics and form.")
+        set_prompt("Arsenal vs Coventry")
         st.rerun()
 
 with chip_col2:
     if st.button("Find the best solution", key="chip2"):
-        set_prompt("Find the best solution for high confidence bet builders in tonight's fixture.")
+        set_prompt("Liverpool vs Everton")
         st.rerun()
 
 with chip_col3:
     if st.button("Create a report", key="chip3"):
-        set_prompt("Create a report summarizing key player shot props and xG trends.")
+        set_prompt("Real Madrid vs Barcelona")
         st.rerun()
 
 with chip_col4:
     if st.button("Research this topic", key="chip4"):
-        set_prompt("Research the recent head-to-head records and corner averages for this match.")
+        set_prompt("Manchester City vs Chelsea")
         st.rerun()
 
 # -----------------------------------------------------------------------------
@@ -460,13 +462,10 @@ if submit_btn and user_prompt.strip():
     with st.spinner("Your agent is working..."):
         try:
             agent_response = run_ajl_agent(user_prompt)
-        except Exception:
-            time.sleep(1)
+        except Exception as e:
             agent_response = (
                 f"### Analysis Result for: '{user_prompt}'\n\n"
-                "* **Match Status**: Data retrieved and processed successfully.\n"
-                "* **Form Evaluation**: Strong recent home momentum detected.\n"
-                "* **Key Recommendation**: Focus on shot props for primary forwards."
+                f"* **Error**: {e}"
             )
 
         st.session_state["messages"].append(
